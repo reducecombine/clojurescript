@@ -287,8 +287,8 @@
             (ana/gen-constant-id '.))))
 
 (deftest test-unicode-munging-cljs-1457
-  (is (= (ana/gen-constant-id :C♯) 'cst$kw$C_u266f_)
-      (= (ana/gen-constant-id 'C♯) 'cst$sym$C_u266f_)))
+  (is (= (ana/gen-constant-id :C♯) 'cst$kw$C_u266f_))
+  (is (= (ana/gen-constant-id 'C♯) 'cst$sym$C_u266f_)))
 
 ;; Constants
 

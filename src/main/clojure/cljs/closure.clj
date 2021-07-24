@@ -602,9 +602,10 @@
 (def ^:private USER-HOME-WRITABLE
   (delay (.canWrite (io/file (System/getProperty "user.home")))))
 
-(defn- aot-cache? [opts]
+(defn- aot-cache?
   "Returns true if compilation artifacts shuold be placed in the
   shared AOT cache."
+  [opts]
   (and (:aot-cache opts)
        @USER-HOME-WRITABLE))
 
@@ -2638,14 +2639,14 @@
               iw   (StringWriter. (* 16 1024 1024))
               es   (.getErrorStream proc)
               ew   (StringWriter. (* 1024 1024))
+              ^Runnable
+              f1   (bound-fn [] (pipe proc is iw))
+              ^Runnable
+              f2   (bound-fn [] (pipe proc es ew))
               _    (do (.start
-                         (Thread.
-                           ^Runnable
-                           (bound-fn [] (pipe proc is iw))))
+                        (Thread. f1))
                        (.start
-                         (Thread.
-                           ^Runnable
-                           (bound-fn [] (pipe proc es ew)))))
+                        (Thread. f2)))
               err  (.waitFor proc)]
           (when (and (not (zero? err)) (not (.isAlive proc)))
             (println (str ew)))))
@@ -2681,18 +2682,16 @@
          iw   (StringWriter. (* 16 1024 1024))
          es   (.getErrorStream proc)
          ew   (StringWriter. (* 1024 1024))
+         ^Runnable f1 (bound-fn [] (pipe proc is iw))
+         ^Runnable f2 (bound-fn [] (pipe proc es ew))
          _    (do (.start
-                    (Thread.
-                      ^Runnable
-                      (bound-fn [] (pipe proc is iw))))
+                   (Thread. f1))
                   (.start
-                    (Thread.
-                      ^Runnable
-                      (bound-fn [] (pipe proc es ew)))))
+                   (Thread. f2)))
          err  (.waitFor proc)]
      (if (zero? err)
        (into []
-         (map (fn [{:strs [file provides]}] file
+         (map (fn [{:strs [file provides]}]
                 (merge
                   {:file file
                    ;; Just tag everything es6 here, add-converted-source will

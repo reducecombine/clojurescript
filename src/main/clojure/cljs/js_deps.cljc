@@ -97,10 +97,11 @@
             (into files))))
       [])))
 
-(defn find-js-resources [path]
+(defn find-js-resources
   "Returns a seq of URLs to all JavaScript resources on the classpath or within
 a given (directory) path on the filesystem. [path] only applies to the latter
 case."
+  [path]
   (let [file (io/file path)]
     (if (.exists file)
       (find-js-fs path)

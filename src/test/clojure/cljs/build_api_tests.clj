@@ -562,7 +562,7 @@
     (is (re-find #"goog\.provide\(\"module\$[A-Za-z0-9$_]+?src\$test\$cljs_build\$foreign_libs_dir\$vendor\$lib\"\)"
                  (slurp (io/file out "src/test/cljs_build/foreign-libs-dir/vendor/lib.js"))))))
 
-(deftest cljs-1883-test-foreign-libs-use-relative-path
+(deftest cljs-1883-test-foreign-libs-use-relative-path-2
   (test/delete-node-modules)
   (let [out "cljs-2334-out"
         root (io/file "src" "test" "cljs_build")

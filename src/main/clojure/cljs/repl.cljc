@@ -198,7 +198,7 @@
 (defn ns->input [ns opts]
   (or (some-> (util/ns->source ns) (ana/parse-ns opts))
       (some-> (get-in @env/*compiler* [:js-dependency-index (str ns)]) add-url)
-      (some-> (deps/find-classpath-lib ns))
+      (deps/find-classpath-lib ns)
       (throw
         (ex-info (str ns " does not exist")
           {::error :invalid-ns}))))
@@ -749,8 +749,8 @@
            (throw e)))))))
 
 (defn- wrap-special-fns
-  [wfn fns]
   "Wrap wfn around all (fn) values in fns hashmap."
+  [wfn fns]
   (into {} (for [[k v] fns] [k (wfn v)])))
 
 (def default-special-fns
@@ -1086,7 +1086,8 @@
         done? (atom false)]
     (env/with-compiler-env (or compiler-env env/*compiler* (env/default-compiler-env opts))
      (when (:source-map opts)
-       (.start (Thread. ^Runnable (bound-fn [] (read-source-map "cljs/core.aot.js")))))
+       (let [^Runnable f (bound-fn [] (read-source-map "cljs/core.aot.js"))]
+         (.start (Thread. f))))
      (binding [*repl-env* repl-env
                ana/*unchecked-if* false
                ana/*unchecked-arrays* false
@@ -1177,10 +1178,9 @@
                        (run! #(analyze-source % opts) analyze-path)
                        (analyze-source analyze-path opts)))
                    (when-let [main-ns (:main opts)]
-                     (.start
-                       (Thread.
-                        ^Runnable
-                         (bound-fn [] (ana/analyze-file (util/ns->source main-ns))))))
+                     (let [^Runnable f (bound-fn [] (ana/analyze-file (util/ns->source main-ns)))]
+                       (.start
+                        (Thread. f))))
                    (init)
                    (run-inits repl-env inits)
                    (maybe-load-user-file)

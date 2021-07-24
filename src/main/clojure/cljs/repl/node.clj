@@ -159,7 +159,8 @@
              (if @socket
                (recur (read-response (:in @socket)))
                (recur nil))))
-         (.start (Thread. ^Runnable (bound-fn [] (event-loop proc (:in @socket)))))
+         (let [^Runnable f (bound-fn [] (event-loop proc (:in @socket)))]
+           (.start (Thread. f )))
          ;; compile cljs.core & its dependencies, goog/base.js must be available
          ;; for bootstrap to load, use new closure/compile as it can handle
          ;; resources in JARs

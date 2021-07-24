@@ -91,11 +91,10 @@
 
 #?(:clj
    (import-macros clojure.core
-     [-> ->> .. assert comment cond
+     [-> ->> .. comment cond
       declare defn-
-      extend-protocol fn for
+      extend-protocol fn
       if-let if-not letfn
-      memfn
       when when-first when-let when-not while
       cond-> cond->> as-> some-> some->>
       if-some when-some]))

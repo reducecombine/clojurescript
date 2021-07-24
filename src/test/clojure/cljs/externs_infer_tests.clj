@@ -286,8 +286,8 @@
                :warnings ws
                :with-core? true
                :opts {:target :nodejs}})]
-    (not (string/includes? res "COMPILED"))
-    (not (string/includes? res "goog"))
+    (is (not (string/includes? res "COMPILED")))
+    (is (not (string/includes? res "goog")))
     (is (zero? (count @ws)))))
 
 (deftest test-cljs-2678-global-exports-infer

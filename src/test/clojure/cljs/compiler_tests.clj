@@ -153,11 +153,11 @@
               ana/*analyze-deps* false]
       (env/with-compiler-env cenv
         (ana/analyze-file (File. "src/main/cljs/cljs/core.cljs"))
-        (let [warnings (-> (capture-warnings
-                             (with-out-str
-                               (emit
-                                 (analyze aenv
-                                   '(let [{:keys [a] :or {b 2}} {:a 1}] [a b]))))))]
+        (let [warnings (capture-warnings
+                        (with-out-str
+                          (emit
+                           (analyze aenv
+                                    '(let [{:keys [a] :or {b 2}} {:a 1}] [a b])))))]
           (is (= (ffirst warnings) :undeclared-var))
           (is (-> warnings
                   first

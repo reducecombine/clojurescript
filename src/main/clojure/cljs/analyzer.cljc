@@ -911,9 +911,10 @@
     t
     #{t}))
 
-(defn canonicalize-type [t]
+(defn canonicalize-type
   "Ensures that a type tag is either nil, a type symbol, or a non-singleton
   set of type symbols, absorbing clj-nil into seq and all types into any."
+  [t]
   (cond
     (symbol? t) t
     (empty? t) nil
