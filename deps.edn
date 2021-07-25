@@ -27,4 +27,12 @@
                                       "-m" "cljs.main" "-co" "resources/self_parity_test.edn" "-c"]}
   :uberjar               {:extra-deps {com.github.seancorfield/depstar {:mvn/version "2.0.193"}}
                           :exec-fn hf.depstar/uberjar
-                          :exec-args {:aot true}}}}
+                          :exec-args {:aot true}}
+  :eastwood {:main-opts ["-m" "eastwood.lint" { ;; Disable some linters for no strong reason - simply they're not as important as the rest:
+                                               :exclude-linters [:implicit-dependencies :deprecations :no-ns-form-found :non-dynamic-earmuffs :local-shadows-var :unlimited-use]
+                                               ;; Disable a false positive:
+                                               :ignored-faults {:suspicious-expression {cljs.analyzer true}}
+                                               ;; Strange failure, not sure of what's going on:
+                                               :exclude-namespaces [data-readers-test.records]
+                                               :config-files ["eastwood.clj"]}]
+             :extra-deps {jonase/eastwood {:mvn/version "0.9.4"}}} }}
