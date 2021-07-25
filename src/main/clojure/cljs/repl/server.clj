@@ -13,12 +13,12 @@
            java.io.InputStreamReader
            java.io.ByteArrayOutputStream
            java.util.zip.GZIPOutputStream
-           java.net.ServerSocket
+           [java.net ServerSocket Socket]
            [java.util LinkedList]))
 
 (def ^:dynamic state nil)
-(def connq (LinkedList.))
-(def promiseq (LinkedList.))
+(def ^LinkedList connq (LinkedList.))
+(def ^LinkedList promiseq (LinkedList.))
 (def lock (Object.))
 
 (defn connection
@@ -28,6 +28,7 @@
   []
   (locking lock
     (let [p (promise)
+          ^Socket
           conn (.poll connq)]
       (if (and conn (not (.isClosed conn)))
         (deliver p conn)
@@ -37,7 +38,7 @@
 (defn set-connection
   "Given a new available connection, poll the promise queue for and deliver
    the connection. Otherwise put the connection into a FIFO queue."
-  [conn]
+  [^Socket conn]
   (locking lock
     (if-let [p (.poll promiseq)]
       (deliver p conn)
@@ -83,7 +84,7 @@
           [(keyword (str/lower-case k)) (str/triml v)]))
       header-lines)))
 
-(defn read-headers [rdr]
+(defn read-headers [^BufferedReader rdr]
   (loop [next-line (.readLine rdr) header-lines []]
     (if (= "" next-line)
       header-lines ;; we're done reading headers
@@ -91,7 +92,7 @@
         (.readLine rdr)
         (conj header-lines next-line)))))
 
-(defn read-post [line rdr]
+(defn read-post [line ^BufferedReader rdr]
   (let [[_ file _] (str/split line #" ")
         {:keys [path ref query-str]} (parse-file-parts file)
         headers (parse-headers (read-headers rdr))
@@ -105,7 +106,7 @@
        :headers headers
        :content (String. content)})))
 
-(defn read-get [line rdr]
+(defn read-get [line ^BufferedReader rdr]
   (let [[_ file _] (str/split line #" ")
         {:keys [path ref query-str]} (parse-file-parts file)
         headers (parse-headers (read-headers rdr))]
@@ -115,7 +116,7 @@
      :query-str query-str
      :headers headers}))
 
-(defn read-request [rdr]
+(defn read-request [^BufferedReader rdr]
   (if-let [line (.readLine rdr)]
     (cond
       (.startsWith line "POST") (read-post line rdr)
@@ -124,12 +125,12 @@
     {:method :unknown :content nil}))
 
 (defn- status-line [status]
-  (case status
+  (case (long status)
     200 "HTTP/1.1 200 OK"
     404 "HTTP/1.1 404 Not Found"
     "HTTP/1.1 500 Error"))
 
-(defn ^bytes gzip [^bytes bytes]
+(defn gzip [^bytes bytes]
   (let [baos (ByteArrayOutputStream. (count bytes))]
     (try
       (let [gzos (GZIPOutputStream. baos)]
@@ -150,8 +151,8 @@
     (send-and-close conn status form content-type "UTF-8"))
   ([conn status form content-type encoding]
     (send-and-close conn status form content-type encoding false))
-  ([conn status form content-type encoding gzip?]
-    (let [byte-form (cond-> (.getBytes form encoding) gzip? gzip)
+  ([^Socket conn status ^String form content-type ^String encoding gzip?]
+    (let [^bytes byte-form (cond-> (.getBytes form encoding) gzip? gzip)
           content-length (count byte-form)
           headers (map #(.getBytes (str % "\r\n"))
                     (cond->
@@ -200,18 +201,19 @@
       (throw t))))
 
 (defn- handle-connection
-  [opts conn]
+  [opts ^Socket conn]
   (let [rdr (BufferedReader. (InputStreamReader. (.getInputStream conn)))]
     (if-let [request (read-request rdr)]
       (dispatch-request request conn opts)
       (.close conn))))
 
 (defn- server-loop
-  [opts server-socket]
-  (when-let [conn (try (.accept server-socket) (catch Throwable _))]
+  [opts ^ServerSocket server-socket]
+  (when-let [^Socket conn (try (.accept server-socket) (catch Throwable _))]
     (.setKeepAlive conn true)
     (.start
       (Thread.
+       ^Runnable
         ((ns-resolve 'clojure.core 'binding-conveyor-fn)
           (fn [] (handle-connection opts conn)))))
     (recur opts server-socket)))
@@ -222,11 +224,12 @@
   (let [ss (ServerSocket. (:port opts))]
     (.start
       (Thread.
+       ^Runnable
         ((ns-resolve 'clojure.core 'binding-conveyor-fn)
           (fn [] (server-loop opts ss)))))
     (swap! state (fn [old] (assoc old :socket ss :port (:port opts))))))
 
 (defn stop []
-  (when-let [sock (:socket @state)]
+  (when-let [^Socket sock (:socket @state)]
     (when-not (.isClosed sock)
       (.close sock))))

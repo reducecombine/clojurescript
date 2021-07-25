@@ -19,14 +19,14 @@
             [clojure.data.json :as json])
   (:import [java.net Socket]
            [java.lang StringBuilder]
-           [java.io File BufferedReader BufferedWriter IOException]
+           [java.io File BufferedReader BufferedWriter IOException PrintWriter Reader Writer]
            [java.lang ProcessBuilder Process]
            [java.util.concurrent ConcurrentHashMap LinkedBlockingQueue]))
 
 (def lock (Object.))
-(def results (ConcurrentHashMap.))
-(def outs (ConcurrentHashMap.))
-(def errs (ConcurrentHashMap.))
+(def ^ConcurrentHashMap results (ConcurrentHashMap.))
+(def ^ConcurrentHashMap outs (ConcurrentHashMap.))
+(def ^ConcurrentHashMap errs (ConcurrentHashMap.))
 
 (defn thread-name []
   (let [name (.getName (Thread/currentThread))]
@@ -39,9 +39,9 @@
     {:socket socket :in in :out out}))
 
 (defn close-socket [s]
-  (.close (:in s))
-  (.close (:out s))
-  (.close (:socket s)))
+  (.close ^Reader (:in s))
+  (.close ^Writer (:out s))
+  (.close ^Socket (:socket s)))
 
 (defn write [^BufferedWriter out ^String js]
   (.write out js)
@@ -86,7 +86,7 @@
 (defn platform-path [v]
   (str "path.join.apply(null, " (seq->js-array v) ")"))
 
-(defn- alive? [proc]
+(defn- alive? [^Process proc]
   (try (.exitValue proc) false (catch IllegalThreadStateException _ true)))
 
 (defn- event-loop [^Process proc in]
@@ -95,26 +95,27 @@
     (try
       (let [res (read-response in)]
         (try
-          (let [{:keys [type repl value] :or {repl "main"} :as event}
+          (let [{:keys [type repl ^String value] :or {repl "main"} :as event}
                 (json/read-str res :key-fn keyword)]
             (case type
               "result"
-              (.offer (.get results repl) event)
-              (when-let [stream (.get (if (= type "out") outs errs) repl)]
-                (.write stream value 0 (.length ^String value))
+              (.offer ^LinkedBlockingQueue (.get results repl) event)
+              (when-let [^Writer stream (.get (if (= type "out") outs errs) repl)]
+                (.write stream value 0 (.length value))
                 (.flush stream))))
           (catch Throwable _
             (.write *out* res 0 (.length res))
             (.flush *out*))))
       (catch IOException e
         (when (and (alive? proc) (not (.contains (.getMessage e) "Stream closed")))
-          (.printStackTrace e *err*))))))
+          (.printStackTrace e ^PrintWriter *err*))))))
 
 (defn- build-process
-  [opts repl-env input-src]
+  ^ProcessBuilder
+  [opts repl-env ^File input-src]
   (let [xs   (cond-> [(get opts :node-command "node")]
                (:debug-port repl-env) (conj (str "--inspect=" (:debug-port repl-env))))
-        proc (-> (ProcessBuilder. (into-array xs)) (.redirectInput input-src))]
+        ^ProcessBuilder proc (-> (ProcessBuilder. ^"[Ljava.lang.String;" (into-array String xs)) (.redirectInput input-src))]
     (when-let [path-fs (:path repl-env)]
       (.put (.environment proc)
             "NODE_PATH"
@@ -144,7 +145,7 @@
              ;; represent paths as vectors so we can emit JS arrays, this is to
              ;; paper over Windows issues with minimum hassle - David
              path         (.getPath (.getCanonicalFile output-dir))
-             [fc & cs]    (rest (util/path-seq path)) ;; remove leading empty string
+             [^String fc & cs]    (rest (util/path-seq path)) ;; remove leading empty string
              root         (.substring path 0 (+ (.indexOf path fc) (count fc)))
              root-path    (vec (cons root cs))
              rewrite-path (conj root-path "goog")]
@@ -158,7 +159,7 @@
              (if @socket
                (recur (read-response (:in @socket)))
                (recur nil))))
-         (.start (Thread. (bound-fn [] (event-loop proc (:in @socket)))))
+         (.start (Thread. ^Runnable (bound-fn [] (event-loop proc (:in @socket)))))
          ;; compile cljs.core & its dependencies, goog/base.js must be available
          ;; for bootstrap to load, use new closure/compile as it can handle
          ;; resources in JARs
@@ -223,7 +224,7 @@
     (locking lock
       (when (zero? (:listeners @state))
         (let [sock @socket]
-          (when-not (.isClosed (:socket sock))
+          (when-not (.isClosed ^Socket (:socket sock))
             (write (:out sock) ":cljs/quit")
             (while (alive? @proc) (Thread/sleep 50))
             (close-socket sock)))))

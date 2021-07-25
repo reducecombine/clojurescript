@@ -291,7 +291,8 @@ http://localhost:9000/out/goog/events/events.js:276:42"
 ;; -----------------------------------------------------------------------------
 ;; Firefox Stacktrace
 
-(defn firefox-clean-function [f]
+(defn firefox-clean-function [#?(:clj ^String f
+                                 :cljs f)]
   (as-> f f
     (cond
       (string/blank? f) nil
@@ -342,7 +343,9 @@ http://localhost:9000/out/goog/events/events.js:276:42"
   (->> st
     string/split-lines
     (drop-while #(starts-with? % "Error"))
-    (take-while #(= (.indexOf % "> eval") -1))
+    (take-while #(= (.indexOf #?(:clj ^String %
+                                 :cljs %) "> eval")
+                    -1))
     (remove string/blank?)
     (map #(firefox-st-el->frame repl-env % opts))
     (remove nil?)

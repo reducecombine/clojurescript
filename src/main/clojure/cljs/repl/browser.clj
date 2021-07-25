@@ -22,12 +22,12 @@
             [cljs.analyzer :as ana]
             [cljs.build.api :as build]
             [clojure.string :as str])
-  (:import [java.util.concurrent Executors ConcurrentHashMap]))
+  (:import [java.util.concurrent ExecutorService Executors ConcurrentHashMap]))
 
 (def ^:dynamic browser-state nil)
 (def ^:dynamic ordering nil)
 (def ^:dynamic es nil)
-(def outs (ConcurrentHashMap.))
+(def ^ConcurrentHashMap outs (ConcurrentHashMap.))
 
 (defn thread-name []
   (let [name (.getName (Thread/currentThread))]
@@ -169,7 +169,7 @@
     "<script src=\"" output-to "\"></script>"
     "</body></html>"))
 
-(defn- path->mime-type [ext->mime-type path default]
+(defn- path->mime-type [ext->mime-type ^String path default]
   (let [lc-path (str/lower-case path)
         last-dot (.lastIndexOf path ".")]
     (if (pos? last-dot)
@@ -237,7 +237,7 @@
       (server/send-404 conn path))))
 
 (server/dispatch-on :get
-  (fn [{:keys [path]} _ _]
+  (fn [{:keys [^String path]} _ _]
     (.startsWith path "/repl"))
   send-repl-client-page)
 
@@ -410,8 +410,8 @@
     (let [server-state (:server-state this)]
       (when (zero? (:listeners (swap! server-state update :listeners dec)))
         (binding [server/state server-state] (server/stop))
-        (when-not (.isShutdown (:es this))
-          (.shutdownNow (:es this))))))
+        (when-not (.isShutdown ^ExecutorService (:es this))
+          (.shutdownNow ^ExecutorService (:es this))))))
   repl/IReplEnvOptions
   (-repl-options [this]
     {:browser-repl true

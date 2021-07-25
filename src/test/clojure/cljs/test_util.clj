@@ -18,14 +18,14 @@
   ([]
    (delete-out-files "out"))
   ([directory]
-   (doseq [f (file-seq (io/file directory))
+   (doseq [^File f (file-seq (io/file directory))
            :when (.isFile f)]
      (.delete f))))
 
 (defn delete-node-modules []
   (let [nm (io/file "node_modules")]
     (while (.exists nm)
-      (doseq [f (file-seq nm)]
+      (doseq [^File f (file-seq nm)]
         (.delete f)))))
 
 (defn document-write?
@@ -62,7 +62,7 @@
   []
   (System/getProperty "java.io.tmpdir"))
 
-(defn platform-path [path]
+(defn platform-path [^String path]
   (.replace path \/ (.charAt (str File/separator) 0)))
 
 (defn unsplit-lines

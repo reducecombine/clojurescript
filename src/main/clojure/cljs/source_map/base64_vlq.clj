@@ -52,11 +52,11 @@
       (when (>= i l)
         (throw (Error. "Expected more digits in base 64 VLQ value.")))
       (let [digit (base64/decode (.charAt s i))]
-        (let [i (inc i)
+        (let [i (long (inc i))
               continuation? (pos? (bit-and digit vlq-continuation-bit))
               digit (bit-and digit vlq-base-mask)
-              result (+ result (bit-shift-left digit shift))
-              shift (+ shift vlq-base-shift)]
+              result (long (+ result (bit-shift-left digit shift)))
+              shift (long (+ shift vlq-base-shift))]
           (if continuation?
             (recur i result shift)
             (lazy-seq

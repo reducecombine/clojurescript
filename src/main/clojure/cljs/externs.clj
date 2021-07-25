@@ -96,17 +96,17 @@
   (fn [^Node node]
     (.getToken node)))
 
-(defmethod parse-extern-node Token/VAR [node]
+(defmethod parse-extern-node Token/VAR [^Node node]
   (when (> (.getChildCount node) 0)
     (let [ty (get-var-info node)]
       (cond-> (parse-extern-node (.getFirstChild node))
         ty (-> first (annotate ty) vector)))))
 
-(defmethod parse-extern-node Token/EXPR_RESULT [node]
+(defmethod parse-extern-node Token/EXPR_RESULT [^Node node]
   (when (> (.getChildCount node) 0)
     (parse-extern-node (.getFirstChild node))))
 
-(defmethod parse-extern-node Token/ASSIGN [node]
+(defmethod parse-extern-node Token/ASSIGN [^Node node]
   (when (> (.getChildCount node) 0)
     (let [ty  (get-var-info node)
           lhs (cond-> (first (parse-extern-node (.getFirstChild node)))
@@ -119,7 +119,7 @@
             lhs))
         [lhs]))))
 
-(defmethod parse-extern-node Token/NAME [node]
+(defmethod parse-extern-node Token/NAME [^Node node]
   (let [lhs (map symbol (string/split (.getQualifiedName node) #"\."))]
     (if (> (.getChildCount node) 0)
       (let [externs (parse-extern-node (.getFirstChild node))]
@@ -127,14 +127,14 @@
           lhs))
       [lhs])))
 
-(defmethod parse-extern-node Token/GETPROP [node]
+(defmethod parse-extern-node Token/GETPROP [^Node node]
   (when-not *ignore-var*
     (let [props (map symbol (string/split (.getQualifiedName node) #"\."))]
       [(if-let [ty (get-var-info node)]
          (annotate props ty)
          props)])))
 
-(defmethod parse-extern-node Token/OBJECTLIT [node]
+(defmethod parse-extern-node Token/OBJECTLIT [^Node node]
   (when (> (.getChildCount node) 0)
     (loop [nodes (.children node)
            externs []]
@@ -143,7 +143,7 @@
         (recur (rest nodes)
           (concat externs (parse-extern-node (first nodes))))))))
 
-(defmethod parse-extern-node Token/STRING_KEY [node]
+(defmethod parse-extern-node Token/STRING_KEY [^Node node]
   (let [lhs (map symbol (string/split (.getString node) #"\."))]
     (if (> (.getChildCount node) 0)
       (let [externs (parse-extern-node (.getFirstChild node))]

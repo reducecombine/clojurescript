@@ -19,7 +19,7 @@
             [clojure.java.io :as io]
             [clojure.string :as string])
   (:import [java.io File]
-           [com.google.javascript.jscomp JSModule]))
+           [com.google.javascript.jscomp CompilerInput JSModule SourceFile]))
 
 (deftest test-make-preamble
   (testing "no options"
@@ -65,12 +65,12 @@
       (doseq [file ["cljs/core/constants.js"
                     "module_test/modules/a.js"
                     "cljs/core.js"]]
-        (.add module (closure/js-source-file nil (io/file out file))))
+        (.add module ^SourceFile (closure/js-source-file nil (io/file out file))))
       (.sortInputsByDeps module compiler)
       (is (= (->> (.getInputs module)
                   (map #(string/replace
-                          (.getName %)
-                          (str (string/replace out #"[\\\/]" "/") "/") "")))
+                         (.getName ^CompilerInput %)
+                         (str (string/replace out #"[\\\/]" "/") "/") "")))
              ["cljs/core.js"
               "cljs/core/constants.js"
               "module_test/modules/a.js"])))))

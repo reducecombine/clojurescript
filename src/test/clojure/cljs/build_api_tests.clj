@@ -122,8 +122,8 @@
 (deftest cljs-1469
   (let [out (.getPath (io/file (test/tmp-dir) "loader-test-out"))
         srcs "samples/hello/src"
-        [common-tmp app-tmp] (mapv #(File/createTempFile  % ".js")
-                               ["common" "app"])
+        [^File common-tmp ^File app-tmp] (mapv #(File/createTempFile  % ".js")
+                                               ["common" "app"])
         opts {:optimizations :simple
               :output-dir out
               :language-in :es6
@@ -134,10 +134,10 @@
     (test/delete-out-files out)
     (.deleteOnExit common-tmp)
     (.deleteOnExit app-tmp)
-    (is (every? #(zero? (.length %)) [common-tmp app-tmp])
+    (is (every? #(zero? (.length ^File %)) [common-tmp app-tmp])
       "The initial files are empty")
     (build/build srcs opts)
-    (is (not (every? #(zero? (.length %)) [common-tmp app-tmp]))
+    (is (not (every? #(zero? (.length ^File %)) [common-tmp app-tmp]))
       "The files are not empty after compilation")))
 
 (deftest cljs-1500-test-modules
