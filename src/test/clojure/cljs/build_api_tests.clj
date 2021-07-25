@@ -20,32 +20,33 @@
             [clojure.java.io :as io]
             [clojure.java.shell :as sh]
             [clojure.test :refer [deftest is testing]]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [nedap.speced.def :as speced]))
 
 (deftest test-target-file-for-cljs-ns
   (is (= (.getPath (build/target-file-for-cljs-ns 'example.core-lib nil))
-        (test/platform-path "out/example/core_lib.js")))
+         (test/platform-path "out/example/core_lib.js")))
   (is (= (.getPath (build/target-file-for-cljs-ns 'example.core-lib "output"))
-        (test/platform-path "output/example/core_lib.js"))))
+         (test/platform-path "output/example/core_lib.js"))))
 
 (deftest test-cljs-dependents-for-macro-namespaces
   (env/with-compiler-env (env/default-compiler-env)
     (swap! env/*compiler* assoc :cljs.analyzer/namespaces
-                                { 'example.core
-                                 {:require-macros {'example.macros 'example.macros
-                                                   'mac 'example.macros}
-                                  :name 'example.core}
-                                 'example.util
-                                 {:require-macros {'example.macros 'example.macros
-                                                   'mac 'example.macros}
-                                  :name 'example.util}
-                                 'example.helpers
-                                 {:require-macros {'example.macros-again 'example.macros-again
-                                                   'mac 'example.macros-again}
-                                  :name 'example.helpers }
-                                 'example.fun
-                                 {:require-macros nil
-                                  :name 'example.fun }})
+           { 'example.core
+            {:require-macros {'example.macros 'example.macros
+                              'mac 'example.macros}
+             :name 'example.core}
+            'example.util
+            {:require-macros {'example.macros 'example.macros
+                              'mac 'example.macros}
+             :name 'example.util}
+            'example.helpers
+            {:require-macros {'example.macros-again 'example.macros-again
+                              'mac 'example.macros-again}
+             :name 'example.helpers }
+            'example.fun
+            {:require-macros nil
+             :name 'example.fun }})
     (is (= (set (build/cljs-dependents-for-macro-namespaces ['example.macros]))
            #{'example.core 'example.util}))
     (is (= (set (build/cljs-dependents-for-macro-namespaces ['example.macros-again]))
@@ -64,9 +65,9 @@
           ana/*analyze-deps* false]
   (env/with-compiler-env test-cenv
     (ana/no-warn
-      (ana/analyze test-env
-        '(ns cljs.user
-           (:use [clojure.string :only [join]]))))))
+     (ana/analyze test-env
+                  '(ns cljs.user
+                     (:use [clojure.string :only [join]]))))))
 
 ;; linear
 
@@ -74,24 +75,24 @@
           ana/*analyze-deps* false]
   (env/with-compiler-env test-cenv
     (ana/no-warn
-      (ana/analyze test-env
-        '(ns foo.core)))))
+     (ana/analyze test-env
+                  '(ns foo.core)))))
 
 (binding [ana/*cljs-ns* 'cljs.user
           ana/*analyze-deps* false]
   (env/with-compiler-env test-cenv
     (ana/no-warn
-      (ana/analyze test-env
-        '(ns bar.core
-           (:require [foo.core :as foo]))))))
+     (ana/analyze test-env
+                  '(ns bar.core
+                     (:require [foo.core :as foo]))))))
 
 (binding [ana/*cljs-ns* 'cljs.user
           ana/*analyze-deps* false]
   (env/with-compiler-env test-cenv
     (ana/no-warn
-      (ana/analyze test-env
-        '(ns baz.core
-           (:require [bar.core :as bar]))))))
+     (ana/analyze test-env
+                  '(ns baz.core
+                     (:require [bar.core :as bar]))))))
 
 ;; graph
 
@@ -99,46 +100,48 @@
           ana/*analyze-deps* false]
   (env/with-compiler-env test-cenv
     (ana/no-warn
-      (ana/analyze test-env
-        '(ns graph.foo.core)))))
+     (ana/analyze test-env
+                  '(ns graph.foo.core)))))
 
 (binding [ana/*cljs-ns* 'cljs.user
           ana/*analyze-deps* false]
   (env/with-compiler-env test-cenv
     (ana/no-warn
-      (ana/analyze test-env
-        '(ns graph.bar.core
-           (:require [graph.foo.core :as foo]))))))
+     (ana/analyze test-env
+                  '(ns graph.bar.core
+                     (:require [graph.foo.core :as foo]))))))
 
 (binding [ana/*cljs-ns* 'cljs.user
           ana/*analyze-deps* false]
   (env/with-compiler-env test-cenv
     (ana/no-warn
-      (ana/analyze test-env
-        '(ns graph.baz.core
-           (:require [graph.foo.core :as foo]
-                     [graph.bar.core :as bar]))))))
+     (ana/analyze test-env
+                  '(ns graph.baz.core
+                     (:require [graph.foo.core :as foo]
+                               [graph.bar.core :as bar]))))))
 
 (deftest cljs-1469
-  (let [out (.getPath (io/file (test/tmp-dir) "loader-test-out"))
-        srcs "samples/hello/src"
-        [^File common-tmp ^File app-tmp] (mapv #(File/createTempFile  % ".js")
-                                           ["common" "app"])
-        opts {:optimizations :simple
-              :output-dir out
-              :language-in :es6
-              :modules {:common {:entries #{"hello.foo.bar"}
-                                 :output-to (.getAbsolutePath common-tmp)}
-                        :app {:entries #{"hello.core"}
-                              :output-to (.getAbsolutePath app-tmp)}}}]
+  (speced/let [out (.getPath (io/file (test/tmp-dir) "loader-test-out"))
+               srcs "samples/hello/src"
+               [^File common-tmp ^File app-tmp] (mapv #(File/createTempFile  % ".js")
+                                                      ["common" "app"])
+               opts {:optimizations :simple
+                     :output-dir out
+                     :language-in :es6
+                     :modules {:common {:entries #{"hello.foo.bar"}
+                                        :output-to (.getAbsolutePath common-tmp)}
+                               :app {:entries #{"hello.core"}
+                                     :output-to (.getAbsolutePath app-tmp)}}}]
     (test/delete-out-files out)
     (.deleteOnExit common-tmp)
     (.deleteOnExit app-tmp)
-    (is (every? #(zero? (.length ^File %)) [common-tmp app-tmp])
-      "The initial files are empty")
+    (is (every? (speced/fn [^File %]
+                  (zero? (.length %))) [common-tmp app-tmp])
+        "The initial files are empty")
     (build/build srcs opts)
-    (is (not (every? #(zero? (.length ^File %)) [common-tmp app-tmp]))
-      "The files are not empty after compilation")))
+    (is (not (every? (fn [^File %]
+                       (zero? (.length %))) [common-tmp app-tmp]))
+        "The files are not empty after compilation")))
 
 (deftest cljs-1500-test-modules
   (let [out (io/file (test/tmp-dir) "cljs-1500-out")
@@ -175,11 +178,11 @@
     (test/delete-out-files out)
     (try
       (build/build (build/inputs
-                     (io/file root "circular_deps" "a.cljs")
-                     (io/file root "circular_deps" "b.cljs"))
-        {:main 'circular-deps.a
-         :optimizations :none
-         :output-to out})
+                    (io/file root "circular_deps" "a.cljs")
+                    (io/file root "circular_deps" "b.cljs"))
+                   {:main 'circular-deps.a
+                    :optimizations :none
+                    :output-to out})
       (is false)
       (catch Throwable e
         (let [cause-message (.getMessage (.getCause (.getCause e)))]
@@ -216,18 +219,18 @@
       (is (not (nil? (re-find #"[\\/]loader_test[\\/]foo\.js" (slurp loader))))))
     (test/delete-out-files out)
     (let [{:keys [inputs opts]} (merge-with merge (loader-test-project out)
-                                  {:opts {:optimizations :advanced
-                                          :source-map true}})]
+                                            {:opts {:optimizations :advanced
+                                                    :source-map true}})]
       (build/build (build/inputs inputs) opts))
     (testing "string inputs in modules"
       (test/delete-out-files out)
       (let [{:keys [inputs opts]} (merge-with merge (loader-test-project out)
-                                    {:opts {:optimizations :whitespace}})]
+                                              {:opts {:optimizations :whitespace}})]
         (build/build (build/inputs inputs) opts)))
     (testing "CLJS-2309 foreign libs order preserved"
       (test/delete-out-files out)
       (let [{:keys [inputs opts]} (merge-with merge (loader-test-project out)
-                                    {:opts {:optimizations :advanced}})]
+                                              {:opts {:optimizations :advanced}})]
         (build/build (build/inputs inputs) opts)
         (is (not (nil? (re-find #"foreignA[\s\S]+foreignB" (slurp (io/file out "foo.js"))))))))))
 
@@ -322,7 +325,7 @@
         cenv (env/default-compiler-env)]
     (test/delete-out-files out)
     (build/build (build/inputs
-                   (io/file inputs "preloads_test/core.cljs"))
+                  (io/file inputs "preloads_test/core.cljs"))
                  opts cenv)
     (is (.exists (io/file out "preloads_test/preload.cljs")))
     (is (contains? (get-in @cenv [::ana/namespaces 'preloads-test.preload :defs]) 'preload-var))))
@@ -338,10 +341,10 @@
         cenv (env/default-compiler-env)]
     (test/delete-out-files out)
     (build/build (build/inputs
-                   (io/file "src/test/cljs_build/libs_test/core.cljs") (io/file "src/test/cljs/js_libs")
-                   (io/file inputs "libs_test/core.cljs")
-                   (io/file "src/test/cljs/js_libs"))
-      opts cenv)
+                  (io/file "src/test/cljs_build/libs_test/core.cljs") (io/file "src/test/cljs/js_libs")
+                  (io/file inputs "libs_test/core.cljs")
+                  (io/file "src/test/cljs/js_libs"))
+                 opts cenv)
     (is (.exists (io/file out "tabby.js")))))
 
 (defn collecting-warning-handler [state]
@@ -374,9 +377,9 @@
       (is (not (.exists (io/file out "node_modules/react/react.js"))))
       (is (.exists (io/file out "emit_node_requires_test/core.js")))
       (is (true? (boolean (re-find #"emit_node_requires_test\.core\.node\$module\$react_dom\$server = require\('react-dom/server'\);"
-                            (slurp (io/file out "emit_node_requires_test/core.js"))))))
+                                   (slurp (io/file out "emit_node_requires_test/core.js"))))))
       (is (true? (boolean (re-find #"emit_node_requires_test\.core\.node\$module\$react_dom\$server\.renderToString"
-                            (slurp (io/file out "emit_node_requires_test/core.js"))))))
+                                   (slurp (io/file out "emit_node_requires_test/core.js"))))))
       (is (empty? @ws))))
   (testing "Node native modules, CLJS-2218"
     (let [ws (atom [])
@@ -394,7 +397,7 @@
         (build/build (build/inputs (io/file inputs "emit_node_requires_test/native_modules.cljs")) opts cenv))
       (is (.exists (io/file out "emit_node_requires_test/native_modules.js")))
       (is (true? (boolean (re-find #"emit_node_requires_test\.native_modules\.node\$module\$path\.isAbsolute"
-                            (slurp (io/file out "emit_node_requires_test/native_modules.js"))))))
+                                   (slurp (io/file out "emit_node_requires_test/native_modules.js"))))))
       (is (empty? @ws))))
   (.delete (io/file "package.json"))
   (test/delete-node-modules))
@@ -431,9 +434,9 @@
         (build/build (build/inputs (io/file inputs "emit_global_requires_test/core.cljs")) opts cenv))
       (is (.exists (io/file out "emit_global_requires_test/core.js")))
       (is (true? (boolean (re-find #"emit_global_requires_test\.core\.global\$module\$react_dom\$server = goog\.global\[\"ReactDOMServer\"\];"
-                            (slurp (io/file out "emit_global_requires_test/core.js"))))))
+                                   (slurp (io/file out "emit_global_requires_test/core.js"))))))
       (is (true? (boolean (re-find #"emit_global_requires_test\.core\.global\$module\$react_dom\$server\.renderToString"
-                            (slurp (io/file out "emit_global_requires_test/core.js"))))))
+                                   (slurp (io/file out "emit_global_requires_test/core.js"))))))
       (testing "global exports using string key"
         (is (true? (boolean (re-find #"emit_global_requires_test\.core\.global\$module\$_CIRCA_material_ui\$core\$styles = goog\.global\[\"MaterialUIStyles\"\];"
                                      (slurp (io/file out "emit_global_requires_test/core.js"))))))
@@ -469,7 +472,7 @@
     (test/delete-out-files out)
     (build/build (build/inputs (io/file inputs "data_readers_test")) opts cenv)
     (is (true? (boolean (re-find #"data_readers_test.records.map__GT_Foo\("
-                          (slurp (io/file out "data_readers_test" "records.js"))))))))
+                                 (slurp (io/file out "data_readers_test" "records.js"))))))))
 
 (deftest test-cljs-2249
   (let [out (io/file (test/tmp-dir) "cljs-2249-out")
@@ -521,9 +524,9 @@
     (test/delete-node-modules)
     (spit (io/file "package.json") "{}")
     (build/install-node-deps!
-      {:react "15.6.1"
-       :react-dom "15.6.1"}
-      {:output-dir out})
+     {:react "15.6.1"
+      :react-dom "15.6.1"}
+     {:output-dir out})
     (let [modules (build/get-node-deps '[react "react-dom/server"] {:output-dir out})]
       (is (true? (some (fn [module]
                          (= module {:module-type :es6
@@ -531,17 +534,17 @@
                                     :provides ["react"
                                                "react/react.js"
                                                "react/react"]}))
-                   modules)))
+                       modules)))
       (is (true? (some (fn [module]
                          (= module {:module-type :es6
                                     :file (.getAbsolutePath (io/file "node_modules/react/lib/React.js"))
                                     :provides ["react/lib/React.js" "react/lib/React"]}))
-                   modules)))
+                       modules)))
       (is (true? (some (fn [module]
                          (= module {:module-type :es6
                                     :file (.getAbsolutePath (io/file "node_modules/react-dom/server.js"))
                                     :provides ["react-dom/server.js" "react-dom/server"]}))
-                   modules))))
+                       modules))))
     (test/delete-out-files out)
     (test/delete-node-modules)
     (.delete (io/file "package.json"))))
@@ -692,10 +695,10 @@
 (deftest test-fingerprint-modules
   (let [out (.getPath (io/file (test/tmp-dir) "cljs-2903-modules-out"))
         project (update-in (test/project-with-modules out)
-                  [:opts] merge
-                  {:fingerprint true
-                   :stable-names true
-                   :optimizations :advanced})]
+                           [:opts] merge
+                           {:fingerprint true
+                            :stable-names true
+                            :optimizations :advanced})]
     (test/delete-out-files out)
     (build/build (build/inputs (:inputs project)) (:opts project))
     (let [mf (edn/read-string (slurp (io/file out "manifest.edn")))]
@@ -703,8 +706,8 @@
         (when-not (= :cljs-base name)
           (let [f   (io/file (get mf output-to))
                 sha (string/lower-case (util/content-sha (slurp (io/file f)) 7))]
-           (is (true? (.exists f)))
-           (is (string/includes? (.getPath f) sha))))))))
+            (is (true? (.exists f)))
+            (is (string/includes? (.getPath f) sha))))))))
 
 (deftest cljs-3209-trivial-output-size
   (let [out (.getPath (io/file (test/tmp-dir) "3209-test-out"))
@@ -758,13 +761,13 @@
         (build/build (build/inputs (io/file inputs "cljs_3235/core.cljs")) opts cenv))
       (is (.exists (io/file out "cljs_3235/core.js")))
       (is (true? (boolean (re-find #"cljs_3235\.core\.node\$module\$react_select\$default = require\('react-select'\)\['default'\];"
-                            (slurp (io/file out "cljs_3235/core.js"))))))
+                                   (slurp (io/file out "cljs_3235/core.js"))))))
       (is (true? (boolean (re-find #"cljs_3235\.core\.node\$module\$react_select\$default\$baz = require\('react-select'\)\['default'\]\['baz'\];"
-                            (slurp (io/file out "cljs_3235/core.js"))))))
+                                   (slurp (io/file out "cljs_3235/core.js"))))))
       (is (true? (boolean (re-find #"cljs_3235\.core\.global\$module\$some_foreign\$woz = goog.global\[\"globalLib\"\]\['woz'\];"
-                            (slurp (io/file out "cljs_3235/core.js"))))))
+                                   (slurp (io/file out "cljs_3235/core.js"))))))
       (is (true? (boolean (re-find #"cljs_3235\.core\.global\$module\$some_foreign\$foz\$boz = goog.global\[\"globalLib\"\]\['foz'\]\['boz'\];"
-                            (slurp (io/file out "cljs_3235/core.js"))))))
+                                   (slurp (io/file out "cljs_3235/core.js"))))))
       (is (empty? @ws))))
   (.delete (io/file "package.json"))
   (test/delete-node-modules))

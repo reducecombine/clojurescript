@@ -10,7 +10,8 @@
   (:require #?@(:clj  [[cljs.util :as util]
                        [clojure.java.io :as io]]
                 :cljs [[goog.string :as gstring]])
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [nedap.speced.def :as speced])
   #?(:clj (:import [java.util.regex Pattern]
                    [java.io File])))
 
@@ -34,15 +35,17 @@
   #?(:clj  (Long/parseLong s)
      :cljs (js/parseInt s 10)))
 
-(defn starts-with?
+(speced/defn starts-with?
   #?(:cljs {:tag boolean})
-  [^String s0 s1]
+  [#?(:clj ^String s0
+      :cljs s0) s1]
   #?(:clj  (.startsWith s0 s1)
      :cljs (gstring/startsWith s0 s1)))
 
-(defn ends-with?
+(speced/defn ends-with?
   #?(:cljs {:tag boolean})
-  [^String s0 s1]
+  [#?(:clj ^String s0
+      :cljs s0) s1]
   #?(:clj  (.endsWith s0 s1)
      :cljs (gstring/endsWith s0 s1)))
 
@@ -291,7 +294,7 @@ http://localhost:9000/out/goog/events/events.js:276:42"
 ;; -----------------------------------------------------------------------------
 ;; Firefox Stacktrace
 
-(defn firefox-clean-function [#?(:clj ^String f
+(speced/defn firefox-clean-function [#?(:clj ^String f
                                  :cljs f)]
   (as-> f f
     (cond
@@ -343,10 +346,11 @@ http://localhost:9000/out/goog/events/events.js:276:42"
   (->> st
     string/split-lines
     (drop-while #(starts-with? % "Error"))
-    (take-while #(= (.indexOf #?(:clj ^String %
-                                 :cljs %)
-                              "> eval")
-                    -1))
+    (take-while (speced/fn [x]
+                  (= (.indexOf #?(:clj ^String x
+                                  :cljs x)
+                               "> eval")
+                     -1)))
     (remove string/blank?)
     (map #(firefox-st-el->frame repl-env % opts))
     (remove nil?)

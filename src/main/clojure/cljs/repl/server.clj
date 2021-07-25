@@ -8,7 +8,8 @@
 
 (ns cljs.repl.server
   (:refer-clojure :exclude [loaded-libs])
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [nedap.speced.def :as speced])
   (:import java.io.BufferedReader
            java.io.InputStreamReader
            java.io.ByteArrayOutputStream
@@ -27,15 +28,15 @@
    connection."
   []
   (locking lock
-    (let [p (promise)
-          ^Socket
-          conn (.poll connq)]
+    (speced/let [p (promise)
+                 ^Socket
+                 conn (.poll connq)]
       (if (and conn (not (.isClosed conn)))
         (deliver p conn)
         (.offer promiseq p))
       p)))
 
-(defn set-connection
+(speced/defn set-connection
   "Given a new available connection, poll the promise queue for and deliver
    the connection. Otherwise put the connection into a FIFO queue."
   [^Socket conn]
@@ -54,11 +55,11 @@
   and a request map and returns a boolean value based on whether or not
   that request should be dispatched to the related handler."
   ([method pred handler]
-    (dispatch-on method {:pred pred :handler handler}))
+   (dispatch-on method {:pred pred :handler handler}))
   ([method {:as m}]
-    (swap! handlers
-      (fn [old]
-        (update-in old [method] #(conj (vec %) m))))))
+   (swap! handlers
+          (fn [old]
+            (update-in old [method] #(conj (vec %) m))))))
 
 (defn parse-file-parts [file]
   ;; This is a port of java.net.URL.Parts, which is package private.
@@ -78,35 +79,35 @@
   "Parse the headers of an HTTP POST request."
   [header-lines]
   (apply hash-map
-    (mapcat
-      (fn [line]
-        (let [[k v] (str/split line #":" 2)]
-          [(keyword (str/lower-case k)) (str/triml v)]))
-      header-lines)))
+         (mapcat
+          (fn [line]
+            (let [[k v] (str/split line #":" 2)]
+              [(keyword (str/lower-case k)) (str/triml v)]))
+          header-lines)))
 
-(defn read-headers [^BufferedReader rdr]
+(speced/defn read-headers [^BufferedReader rdr]
   (loop [next-line (.readLine rdr) header-lines []]
     (if (= "" next-line)
       header-lines ;; we're done reading headers
       (recur
-        (.readLine rdr)
-        (conj header-lines next-line)))))
+       (.readLine rdr)
+       (conj header-lines next-line)))))
 
-(defn read-post [line ^BufferedReader rdr]
+(speced/defn read-post [line ^BufferedReader rdr]
   (let [[_ file _] (str/split line #" ")
         {:keys [path ref query-str]} (parse-file-parts file)
         headers (parse-headers (read-headers rdr))
         content-length (Integer/parseInt (:content-length headers))
         content (char-array content-length)]
     (io! (.read rdr content 0 content-length)
-      {:method :post
-       :path path
-       :ref ref
-       :query-str query-str
-       :headers headers
-       :content (String. content)})))
+         {:method :post
+          :path path
+          :ref ref
+          :query-str query-str
+          :headers headers
+          :content (String. content)})))
 
-(defn read-get [line ^BufferedReader rdr]
+(speced/defn read-get [line ^BufferedReader rdr]
   (let [[_ file _] (str/split line #" ")
         {:keys [path ref query-str]} (parse-file-parts file)
         headers (parse-headers (read-headers rdr))]
@@ -116,7 +117,7 @@
      :query-str query-str
      :headers headers}))
 
-(defn read-request [^BufferedReader rdr]
+(speced/defn read-request [^BufferedReader rdr]
   (if-let [line (.readLine rdr)]
     (cond
       (.startsWith line "POST") (read-post line rdr)
@@ -130,7 +131,7 @@
     404 "HTTP/1.1 404 Not Found"
     "HTTP/1.1 500 Error"))
 
-(defn gzip [^bytes bytes]
+(speced/defn gzip [^bytes bytes]
   (let [baos (ByteArrayOutputStream. (count bytes))]
     (try
       (let [gzos (GZIPOutputStream. baos)]
@@ -142,43 +143,43 @@
         (.close baos)))
     (.toByteArray baos)))
 
-(defn send-and-close
+(speced/defn send-and-close
   "Use the passed connection to send a form to the browser. Send a
   proper HTTP response."
   ([conn status form]
-    (send-and-close conn status form "text/html"))
+   (send-and-close conn status form "text/html"))
   ([conn status form content-type]
-    (send-and-close conn status form content-type "UTF-8"))
+   (send-and-close conn status form content-type "UTF-8"))
   ([conn status form content-type encoding]
-    (send-and-close conn status form content-type encoding false))
+   (send-and-close conn status form content-type encoding false))
   ([^Socket conn status ^String form content-type ^String encoding gzip?]
-    (let [^bytes byte-form (cond-> (.getBytes form encoding) gzip? gzip)
-          content-length (count byte-form)
-          headers (map #(.getBytes (str % "\r\n"))
-                    (cond->
-                      [(status-line status)
-                       "Server: ClojureScript REPL"
-                       (str "Content-Type: "
-                         content-type
-                         "; charset=" encoding)
-                       (str "Content-Length: " content-length)]
-                      gzip? (conj "Content-Encoding: gzip")
-                      true (conj "")))]
-      (with-open [os (.getOutputStream conn)]
-        (doseq [header headers]
-          (.write os header 0 (count header)))
-        (.write os byte-form 0 content-length)
-        (.flush os)
-        (.close conn)))))
+   (speced/let [^bytes byte-form (cond-> (.getBytes form encoding) gzip? gzip)
+                content-length (count byte-form)
+                headers (map #(.getBytes (str % "\r\n"))
+                             (cond->
+                                 [(status-line status)
+                                  "Server: ClojureScript REPL"
+                                  (str "Content-Type: "
+                                       content-type
+                                       "; charset=" encoding)
+                                  (str "Content-Length: " content-length)]
+                               gzip? (conj "Content-Encoding: gzip")
+                               true (conj "")))]
+     (with-open [os (.getOutputStream conn)]
+       (doseq [header headers]
+         (.write os header 0 (count header)))
+       (.write os byte-form 0 content-length)
+       (.flush os)
+       (.close conn)))))
 
 (defn send-404 [conn path]
   (send-and-close conn 404
-    (str
-      "<html><body>"
-      "<h2>Page not found</h2>"
-      "No page " path " found on this server."
-      "</body></html>")
-    "text/html"))
+                  (str
+                   "<html><body>"
+                   "<h2>Page not found</h2>"
+                   "No page " path " found on this server."
+                   "</body></html>")
+                  "text/html"))
 
 (defn- dispatch-request [request conn opts]
   (try
@@ -200,36 +201,40 @@
         (catch Throwable _))
       (throw t))))
 
-(defn- handle-connection
+(speced/defn handle-connection
   [opts ^Socket conn]
   (let [rdr (BufferedReader. (InputStreamReader. (.getInputStream conn)))]
     (if-let [request (read-request rdr)]
       (dispatch-request request conn opts)
       (.close conn))))
 
-(defn- server-loop
+(defn server-loop
   [opts ^ServerSocket server-socket]
-  (when-let [^Socket conn (try (.accept server-socket) (catch Throwable _))]
-    (.setKeepAlive conn true)
-    (.start
-      (Thread.
+  (let [^Socket conn (try (.accept server-socket) (catch Throwable _))]
+    (assert (instance? ServerSocket server-socket))
+    (assert (instance? Socket conn))
+    (when conn
+      (.setKeepAlive conn true)
+      (.start
+       (Thread.
         ^Runnable
         ((ns-resolve 'clojure.core 'binding-conveyor-fn)
-          (fn [] (handle-connection opts conn)))))
-    (recur opts server-socket)))
+         (fn [] (handle-connection opts conn)))))
+      (recur opts server-socket))))
 
 (defn start
   "Start the server on the specified port."
   [opts]
   (let [ss (ServerSocket. (:port opts))]
     (.start
-      (Thread.
-        ^Runnable
-        ((ns-resolve 'clojure.core 'binding-conveyor-fn)
-          (fn [] (server-loop opts ss)))))
+     (Thread.
+      ^Runnable
+      ((ns-resolve 'clojure.core 'binding-conveyor-fn)
+       (fn [] (server-loop opts ss)))))
     (swap! state (fn [old] (assoc old :socket ss :port (:port opts))))))
 
 (defn stop []
-  (when-let [^Socket sock (:socket @state)]
-    (when-not (.isClosed sock)
-      (.close sock))))
+  (speced/let [^Socket sock (:socket @state)]
+    (when sock
+      (when-not (.isClosed sock)
+        (.close sock)))))

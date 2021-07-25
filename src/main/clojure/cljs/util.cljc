@@ -1,17 +1,18 @@
-;   Copyright (c) Rich Hickey. All rights reserved.
-;   The use and distribution terms for this software are covered by the
-;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-;   which can be found in the file epl-v10.html at the root of this distribution.
-;   By using this software in any fashion, you are agreeing to be bound by
-;   the terms of this license.
-;   You must not remove this notice, or any other, from this software.
+                                        ;   Copyright (c) Rich Hickey. All rights reserved.
+                                        ;   The use and distribution terms for this software are covered by the
+                                        ;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+                                        ;   which can be found in the file epl-v10.html at the root of this distribution.
+                                        ;   By using this software in any fashion, you are agreeing to be bound by
+                                        ;   the terms of this license.
+                                        ;   You must not remove this notice, or any other, from this software.
 
 (ns cljs.util
   (:refer-clojure :exclude [boolean?])
   (:require [clojure.java.io :as io]
             [clojure.string :as string]
             [clojure.set :as set]
-            [clojure.edn :as edn])
+            [clojure.edn :as edn]
+            [nedap.speced.def :as speced])
   (:import [java.io File]
            [java.net URL URLDecoder]
            [java.security MessageDigest]))
@@ -23,10 +24,10 @@
   (ex-info nil {:clojure.error/phase :compilation} cause))
 
 (defn- main-src-directory []
-  (some (fn [^File file]
+  (some (speced/fn [^File file]
           (when (= "main" (.getName file))
             file))
-    (iterate (memfn ^File getParentFile) (io/as-file (io/resource "cljs/util.cljc")))))
+        (iterate (memfn ^File getParentFile) (io/as-file (io/resource "cljs/util.cljc")))))
 
 (defn- file-hash [^File file]
   (if (.isDirectory file)
@@ -40,7 +41,7 @@
                            (if (== n Integer/MIN_VALUE)
                              0
                              (Math/abs (int n))))]
-           (str synthethetic-version-prefix 
+           (str synthethetic-version-prefix
                 (qualifier (reduce unchecked-add-int (map file-hash (file-seq (main-src-directory)))))))))
 
 (defn ^String clojurescript-version
@@ -79,7 +80,7 @@
 (defn build-options [^File f]
   (with-open [reader (io/reader f)]
     (let [match (some->> reader line-seq first
-                           (re-matches #".*ClojureScript \d+\.\d+\.\d+ (.*)$"))]
+                         (re-matches #".*ClojureScript \d+\.\d+\.\d+ (.*)$"))]
       (and match (edn/read-string (second match))))))
 
 (defn munge-path [ss]
@@ -110,9 +111,9 @@
 
 (defn to-path
   ([parts]
-     (to-path parts File/separator))
+   (to-path parts File/separator))
   ([parts sep]
-    (apply str (interpose sep parts))))
+   (apply str (interpose sep parts))))
 
 (defn split-paths
   [paths-str]
@@ -122,21 +123,21 @@
 
 (defn ^File to-target-file
   ([target-dir ns-info]
-    (to-target-file target-dir ns-info "js"))
+   (to-target-file target-dir ns-info "js"))
   ([target-dir {:keys [ns source-file] :as ns-info} ext]
-    (let [src-ext (if source-file
-                    (cljs.util/ext source-file)
-                    "cljs")
-          ns      (if (or (= src-ext "clj")
-                          (and (= ns 'cljs.core) (= src-ext "cljc")))
-                    (symbol (str ns "$macros"))
-                    ns)
-          relpath (string/split (munge-path (str ns)) #"\.")
-          parents (cond-> (butlast relpath)
-                    target-dir (conj target-dir))]
-      (cond->> (io/file (str (last relpath) (str "." ext)))
-        (seq parents)
-        (io/file (to-path parents))))))
+   (let [src-ext (if source-file
+                   (cljs.util/ext source-file)
+                   "cljs")
+         ns      (if (or (= src-ext "clj")
+                         (and (= ns 'cljs.core) (= src-ext "cljc")))
+                   (symbol (str ns "$macros"))
+                   ns)
+         relpath (string/split (munge-path (str ns)) #"\.")
+         parents (cond-> (butlast relpath)
+                   target-dir (conj target-dir))]
+     (cond->> (io/file (str (last relpath) (str "." ext)))
+       (seq parents)
+       (io/file (to-path parents))))))
 
 (defn mkdirs
   "Create all parent directories for the passed file."
@@ -166,8 +167,8 @@
 (defn ^String normalize-path [^String x]
   (-> (cond-> x
         windows? (string/replace #"^[\\/]" ""))
-    (string/replace "\\" File/separator)
-    (string/replace "/" File/separator)))
+      (string/replace "\\" File/separator)
+      (string/replace "/" File/separator)))
 
 (defn ^String path [x]
   (cond
@@ -229,7 +230,7 @@
               (.close ins))))))
     :else
     (throw
-      (IllegalArgumentException. (str "Cannot get last modified for " src)))))
+     (IllegalArgumentException. (str "Cannot get last modified for " src)))))
 
 (defn changed? [a b]
   (not (== (last-modified a) (last-modified b))))
@@ -240,16 +241,16 @@
 
 (defn topo-sort
   ([x get-deps]
-    (topo-sort x 0 (atom (sorted-map)) (memoize get-deps)))
+   (topo-sort x 0 (atom (sorted-map)) (memoize get-deps)))
   ([x depth state memo-get-deps]
-    (let [deps (memo-get-deps x)]
-      (swap! state update-in [depth] (fnil into #{}) deps)
-      (doseq [dep deps]
-        (topo-sort dep (inc depth) state memo-get-deps))
-      (doseq [[<depth _] (subseq @state < depth)]
-        (swap! state update-in [<depth] set/difference deps))
-      (when (= depth 0)
-        (distinct (apply concat (vals @state)))))))
+   (let [deps (memo-get-deps x)]
+     (swap! state update-in [depth] (fnil into #{}) deps)
+     (doseq [dep deps]
+       (topo-sort dep (inc depth) state memo-get-deps))
+     (doseq [[<depth _] (subseq @state < depth)]
+       (swap! state update-in [<depth] set/difference deps))
+     (when (= depth 0)
+       (distinct (apply concat (vals @state)))))))
 
 (defn valid-js-id-start? [s]
   (re-find #"(?U)^[\p{Alpha}_$]" s))
@@ -268,12 +269,12 @@
   {:added "1.0"}
   ([msg expr] `(measure true ~msg ~expr))
   ([enable msg expr]
-    `(if ~enable
-       (let [start# (. System (nanoTime))
-             ret# ~expr]
-         (debug-prn (str ~msg ", elapsed time:") (/ (double (- (. System (nanoTime)) start#)) 1000000.0) "msecs")
-         ret#)
-       ~expr)))
+   `(if ~enable
+      (let [start# (. System (nanoTime))
+            ret# ~expr]
+        (debug-prn (str ~msg ", elapsed time:") (/ (double (- (. System (nanoTime)) start#)) 1000000.0) "msecs")
+        ret#)
+      ~expr)))
 
 (defmacro compile-if
   ([exp then] `(compile-if ~exp ~then nil))
@@ -302,8 +303,8 @@
                                  0
                                  1)]
                       (min (inc (f f (rest s) t))
-                        (inc (f f s (rest t)))
-                        (+ cost (f f (rest s) (rest t)))))))
+                           (inc (f f s (rest t)))
+                           (+ cost (f f (rest s) (rest t)))))))
         g (memoize f)]
     (g g s t)))
 
@@ -326,20 +327,20 @@
   {:pre [(set? passed) (set? knowns)]}
   (for [unknown (set/difference passed knowns)]
     [unknown (some-> (suggestion 3 (str unknown) (map str knowns))
-               (subs 1)
-               keyword)]))
+                     (subs 1)
+                     keyword)]))
 
 (defn distinct-by
   ([f coll]
    (let [step (fn step [xs seen]
                 (lazy-seq
-                  ((fn [[x :as xs] seen]
-                     (when-let [s (seq xs)]
-                       (let [v (f x)]
-                         (if (contains? seen v)
-                           (recur (rest s) seen)
-                           (cons x (step (rest s) (conj seen v)))))))
-                    xs seen)))]
+                 ((fn [[x :as xs] seen]
+                    (when-let [s (seq xs)]
+                      (let [v (f x)]
+                        (if (contains? seen v)
+                          (recur (rest s) seen)
+                          (cons x (step (rest s) (conj seen v)))))))
+                  xs seen)))]
      (step coll #{}))))
 
 (def ^:private hex-digits (char-array "0123456789ABCDEF"))
@@ -375,9 +376,9 @@
         (let [k (first ks)]
           (if (contains? b' k)
             (recur
-              (next ks)
-              (assoc ret k (map-merge (get ret k) (get b' k)))
-              (dissoc b' k))
+             (next ks)
+             (assoc ret k (map-merge (get ret k) (get b' k)))
+             (dissoc b' k))
             (recur (next ks) ret b')))
         (merge ret b')))
     a))
@@ -393,16 +394,16 @@
   ([] (module-file-seq (io/file "node_modules")))
   ([dir]
    (let [fseq (tree-seq
-                (fn [^File f]
-                  (and (. f (isDirectory))
-                    (not (boolean
-                           (re-find #"node_modules[\\\/].*[\\\/]node_modules"
-                             (.getPath f))))))
-                (fn [^File d]
-                  (seq (. d (listFiles))))
-                dir)]
+               (fn [^File f]
+                 (and (. f (isDirectory))
+                      (not (boolean
+                            (re-find #"node_modules[\\\/].*[\\\/]node_modules"
+                                     (.getPath f))))))
+               (fn [^File d]
+                 (seq (. d (listFiles))))
+               dir)]
      (filter (fn [^File f]
                (let [path (.getPath f)]
                  (or (.endsWith path ".json")
                      (.endsWith path ".js"))))
-       fseq))))
+             fseq))))

@@ -20,12 +20,34 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
-
+  <repositories>
+    <repository>
+      <id>sonatype</id>
+      <url>https://oss.sonatype.org/content/repositories/releases/</url>
+    </repository>
+    <repository>
+      <id>sonatype-snaps</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+    </repository>
+    <repository>
+      <id>clojars</id>
+      <url>https://repo.clojars.org/</url>
+    </repository>
+    <repository>
+      <id>maven-central</id>
+      <url>http://repo1.maven.org/maven2/</url>
+    </repository>
+  </repositories>
     <dependencies>
         <dependency>
             <groupId>org.clojure</groupId>
             <artifactId>clojure</artifactId>
             <version>1.8.0</version>
+        </dependency>
+        <dependency>
+          <groupId>com.nedap.staffing-solutions</groupId>
+          <artifactId>speced.def</artifactId>
+          <version>2.0.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.javascript</groupId>

@@ -16,7 +16,8 @@
             [cljs.repl.bootstrap :as bootstrap]
             [cljs.cli :as cli]
             [cljs.closure :as closure]
-            [clojure.data.json :as json])
+            [clojure.data.json :as json]
+            [nedap.speced.def :as speced])
   (:import [java.net Socket]
            [java.lang StringBuilder]
            [java.io File BufferedReader BufferedWriter IOException PrintWriter Reader Writer]
@@ -53,10 +54,10 @@
     (loop [sb sb c (.read in)]
       (case c
         -1 (throw (IOException. "Stream closed"))
-         0 (str sb)
-         (do
-           (.append sb (char c))
-           (recur sb (.read in)))))))
+        0 (str sb)
+        (do
+          (.append sb (char c))
+          (recur sb (.read in)))))))
 
 (defn node-eval
   "Evaluate a JavaScript string in the Node REPL process."
@@ -78,7 +79,7 @@
   "Load a Closure JavaScript file into the Node REPL process."
   [repl-env provides url]
   (node-eval repl-env
-    (str "goog.require('" (comp/munge (first provides)) "')")))
+             (str "goog.require('" (comp/munge (first provides)) "')")))
 
 (defn seq->js-array [v]
   (str "[" (apply str (interpose ", " (map pr-str v))) "]"))
@@ -86,17 +87,17 @@
 (defn platform-path [v]
   (str "path.join.apply(null, " (seq->js-array v) ")"))
 
-(defn- alive? [^Process proc]
+(speced/defn alive? [^Process proc]
   (try (.exitValue proc) false (catch IllegalThreadStateException _ true)))
 
-(defn- event-loop [^Process proc in]
+(speced/defn event-loop [^Process proc in]
   ;; we really do want system-default encoding here
   (while (alive? proc)
     (try
       (let [res (read-response in)]
         (try
-          (let [{:keys [type repl ^String value] :or {repl "main"} :as event}
-                (json/read-str res :key-fn keyword)]
+          (speced/let [{:keys [type repl ^String value] :or {repl "main"} :as event}
+                       (json/read-str res :key-fn keyword)]
             (case type
               "result"
               (.offer ^LinkedBlockingQueue (.get results repl) event)
@@ -110,12 +111,12 @@
         (when (and (alive? proc) (not (.contains (.getMessage e) "Stream closed")))
           (.printStackTrace e ^PrintWriter *err*))))))
 
-(defn- build-process
+(speced/defn build-process
   ^ProcessBuilder
   [opts repl-env ^File input-src]
-  (let [xs   (cond-> [(get opts :node-command "node")]
-               (:debug-port repl-env) (conj (str "--inspect=" (:debug-port repl-env))))
-        ^ProcessBuilder proc (-> (ProcessBuilder. ^"[Ljava.lang.String;" (into-array String xs)) (.redirectInput input-src))]
+  (speced/let [xs   (cond-> [(get opts :node-command "node")]
+                      (:debug-port repl-env) (conj (str "--inspect=" (:debug-port repl-env))))
+               ^ProcessBuilder proc (-> (ProcessBuilder. ^"[Ljava.lang.String;" (into-array String xs)) (.redirectInput input-src))]
     (when-let [path-fs (:path repl-env)]
       (.put (.environment proc)
             "NODE_PATH"
@@ -132,24 +133,24 @@
      (.put errs tname *err*))
    (locking lock
      (when-not @socket
-       (let [output-dir   (io/file (util/output-directory opts))
-             _            (.mkdirs output-dir)
-             of           (io/file output-dir "node_repl.js")
-             _            (spit of
-                            (string/replace (slurp (io/resource "cljs/repl/node_repl.js"))
-                              "var PORT = 5001;"
-                              (str "var PORT = " (:port repl-env) ";")))
-             proc         (.start (build-process opts repl-env of))
-             env          (ana/empty-env)
-             core         (io/resource "cljs/core.cljs")
-             ;; represent paths as vectors so we can emit JS arrays, this is to
-             ;; paper over Windows issues with minimum hassle - David
-             path         (.getPath (.getCanonicalFile output-dir))
-             [^String fc
-              & cs]       (rest (util/path-seq path)) ;; remove leading empty string
-             root         (.substring path 0 (+ (.indexOf path fc) (count fc)))
-             root-path    (vec (cons root cs))
-             rewrite-path (conj root-path "goog")]
+       (speced/let [output-dir   (io/file (util/output-directory opts))
+                    _            (.mkdirs output-dir)
+                    of           (io/file output-dir "node_repl.js")
+                    _            (spit of
+                                       (string/replace (slurp (io/resource "cljs/repl/node_repl.js"))
+                                                       "var PORT = 5001;"
+                                                       (str "var PORT = " (:port repl-env) ";")))
+                    proc         (.start (build-process opts repl-env of))
+                    env          (ana/empty-env)
+                    core         (io/resource "cljs/core.cljs")
+                    ;; represent paths as vectors so we can emit JS arrays, this is to
+                    ;; paper over Windows issues with minimum hassle - David
+                    path         (.getPath (.getCanonicalFile output-dir))
+                    [^String fc
+                     & cs]       (rest (util/path-seq path)) ;; remove leading empty string
+                    root         (.substring path 0 (+ (.indexOf path fc) (count fc)))
+                    root-path    (vec (cons root cs))
+                    rewrite-path (conj root-path "goog")]
          (reset! (:proc repl-env) proc)
          (loop [r nil]
            (when-not (= r "ready")
@@ -166,44 +167,44 @@
          ;; for bootstrap to load, use new closure/compile as it can handle
          ;; resources in JARs
          (let [core-js (closure/compile core
-                         (assoc opts :output-file
-                                     (closure/src-file->target-file
-                                       core (dissoc opts :output-dir))))
+                                        (assoc opts :output-file
+                                               (closure/src-file->target-file
+                                                core (dissoc opts :output-dir))))
                deps    (closure/add-dependencies opts core-js)]
            ;; output unoptimized code and only the deps file for all compiled
            ;; namespaces, we don't need the bootstrap target file
            (apply closure/output-unoptimized
-             (assoc (assoc opts :target :none)
-               :output-to (.getPath (io/file output-dir "node_repl_deps.js")))
-             deps))
+                  (assoc (assoc opts :target :none)
+                         :output-to (.getPath (io/file output-dir "node_repl_deps.js")))
+                  deps))
          ;; bootstrap, replace __dirname as __dirname won't be set
          ;; properly due to how we are running it - David
          (node-eval repl-env
-           (-> (slurp (io/resource "cljs/bootstrap_nodejs.js"))
-             (string/replace "path.resolve(__dirname, \"..\", \"base.js\")"
-               (platform-path (conj rewrite-path "bootstrap" ".." "base.js")))
-             (string/replace
-               "path.join(\".\", \"..\", src)"
-               (str "path.join(" (platform-path rewrite-path) ", src)"))
-             (string/replace "path.resolve(__dirname, \"..\", src)"
-               (str "path.join(" (platform-path rewrite-path) ", src)"))
-             (string/replace
-               "var CLJS_ROOT = \".\";"
-               (str "var CLJS_ROOT = " (platform-path root-path) ";"))))
+                    (-> (slurp (io/resource "cljs/bootstrap_nodejs.js"))
+                        (string/replace "path.resolve(__dirname, \"..\", \"base.js\")"
+                                        (platform-path (conj rewrite-path "bootstrap" ".." "base.js")))
+                        (string/replace
+                         "path.join(\".\", \"..\", src)"
+                         (str "path.join(" (platform-path rewrite-path) ", src)"))
+                        (string/replace "path.resolve(__dirname, \"..\", src)"
+                                        (str "path.join(" (platform-path rewrite-path) ", src)"))
+                        (string/replace
+                         "var CLJS_ROOT = \".\";"
+                         (str "var CLJS_ROOT = " (platform-path root-path) ";"))))
          ;; load the deps file so we can goog.require cljs.core etc.
          (node-eval repl-env
-           (str "require("
-             (platform-path (conj root-path "node_repl_deps.js"))
-             ")"))
+                    (str "require("
+                         (platform-path (conj root-path "node_repl_deps.js"))
+                         ")"))
          ;; load cljs.core, setup printing
          (repl/evaluate-form repl-env env "<cljs repl>"
-           '(do
-              (.require js/goog "cljs.core")
-              (enable-console-print!)))
+                             '(do
+                                (.require js/goog "cljs.core")
+                                (enable-console-print!)))
          (bootstrap/install-repl-goog-require repl-env env)
          (node-eval repl-env
-           (str "goog.global.CLOSURE_UNCOMPILED_DEFINES = "
-             (json/write-str (:closure-defines opts)) ";")))))
+                    (str "goog.global.CLOSURE_UNCOMPILED_DEFINES = "
+                         (json/write-str (:closure-defines opts)) ";")))))
    (swap! state update :listeners inc)))
 
 (defrecord NodeEnv [host port path socket proc state]
@@ -238,13 +239,13 @@
 (defn repl-env* [options]
   (let [{:keys [host port path debug-port]}
         (merge
-          {:host "localhost"
-           :port (+ 49000 (rand-int 10000))}
-          options)]
+         {:host "localhost"
+          :port (+ 49000 (rand-int 10000))}
+         options)]
     (assoc
-      (NodeEnv. host port path
-        (atom nil) (atom nil) (atom {:listeners 0}))
-      :debug-port debug-port)))
+     (NodeEnv. host port path
+               (atom nil) (atom nil) (atom {:listeners 0}))
+     :debug-port debug-port)))
 
 (defn repl-env
   "Construct a Node.js evalution environment. Can supply :host, :port
