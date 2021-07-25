@@ -26,11 +26,11 @@
             [cljs.module-graph :as module-graph])
   (:import [java.lang ProcessBuilder]
            [java.io
-            File BufferedInputStream BufferedReader
+            File BufferedInputStream BufferedReader PrintWriter
             Writer InputStreamReader IOException StringWriter ByteArrayInputStream]
            [java.net URI URL]
            [java.util.logging Level]
-           [java.util List Random HashMap]
+           [java.util Collection List Random HashMap]
            [java.util.concurrent
             TimeUnit LinkedBlockingDeque Executors CountDownLatch]
            [com.google.javascript.jscomp CompilerOptions CompilationLevel
@@ -46,7 +46,7 @@
                                               SimpleDependencyInfo]
            [com.google.javascript.rhino Node]
            [java.nio.file Path Paths Files StandardWatchEventKinds WatchKey
-                          WatchEvent FileVisitor FileVisitResult FileSystems]
+                          WatchEvent FileVisitor FileVisitResult FileSystem FileSystems]
            [java.nio.charset Charset StandardCharsets]
            [com.sun.nio.file SensitivityWatchEventModifier]))
 
@@ -250,7 +250,7 @@
 
 (defn set-options
   "TODO: Add any other options that we would like to support."
-  [opts ^CompilerOptions compiler-options]
+  ^CompilerOptions [opts ^CompilerOptions compiler-options]
   (.setModuleResolutionMode compiler-options ModuleLoader$ResolutionMode/NODE)
 
   (when (contains? opts :pretty-print)
@@ -383,7 +383,7 @@
                            (or ext []))
                          ext)))
         load-js (fn [ext]
-                  (map #(js-source-file (.getFile %) (slurp %)) ext))]
+                  (map #(js-source-file (.getFile ^URL %) (slurp %)) ext))]
     (let [js-sources  (-> externs filter-js add-target load-js)
           ups-sources (-> ups-externs filter-cp-js load-js)
           all-sources (vec (concat js-sources ups-sources))]
@@ -608,7 +608,7 @@
        @USER-HOME-WRITABLE))
 
 (defn- copy-from-cache
-  [cache-path cacheable source-file opts]
+  [^File cache-path cacheable source-file opts]
   (doseq [[k ^File f] cacheable]
     (when (.exists f)
       (let [target (io/file (util/output-directory opts)
@@ -639,7 +639,7 @@
                  (gitlibs-src? file))
           (let [cacheable  (ana/cacheable-files file (util/ext file) opts)
                 cache-path (ana/cache-base-path (util/path file) opts)]
-            (if (not (.exists (:output-file cacheable)))
+            (if (not (.exists ^File (:output-file cacheable)))
               (let [ret (compiled-file (comp/compile-file file (:output-file cacheable)
                                          (assoc opts :output-dir (util/path cache-path))))]
                 (copy-from-cache cache-path cacheable file opts)
@@ -1060,7 +1060,7 @@
 
 (defn parallel-compile-sources [inputs compiler-stats opts]
   (module-graph/validate-inputs inputs)
-  (let [deque     (LinkedBlockingDeque. inputs)
+  (let [deque     (LinkedBlockingDeque. ^Collection inputs)
         input-set (atom (into #{} (comp (remove nil?) (map :ns)) inputs))
         cnt       (+ 2 (int (* 0.6 (.. Runtime getRuntime availableProcessors))))
         latch     (CountDownLatch. cnt)
@@ -1413,12 +1413,12 @@
 
 (defn write-variable-maps [^Result result opts]
   (let [var-out (:closure-variable-map-out opts)]
-    (when-let [var-map (and var-out (.-variableMap result))]
+    (when-let [^VariableMap var-map (and var-out (.-variableMap result))]
       (util/mkdirs var-out)
       (io/copy (ByteArrayInputStream. (.toBytes var-map))
         (io/file var-out))))
   (let [prop-out (:closure-property-map-out opts)]
-    (when-let [prop-map (and prop-out (.-propertyMap result))]
+    (when-let [^VariableMap prop-map (and prop-out (.-propertyMap result))]
       (util/mkdirs prop-out)
       (io/copy (ByteArrayInputStream. (.toBytes prop-map))
         (io/file prop-out)))))
@@ -1851,7 +1851,7 @@
             ";\n"
             (get-in fi [:cljs-base :source])))))))
 
-(defn lib-rel-path [{:keys [lib-path url provides] :as ijs}]
+(defn lib-rel-path [{:keys [^String lib-path url provides] :as ijs}]
   (if (nil? lib-path)
     (util/ns->relpath (first provides) "js")
     (if (.endsWith lib-path ".js")
@@ -1891,7 +1891,7 @@
            (js-source-file file (deps/-source lib))))
     js-modules))
 
-(defn make-convert-js-module-options [opts]
+(defn make-convert-js-module-options ^CompilerOptions [opts]
   (-> opts
     (select-keys
       [:closure-warnings :closure-extra-annotations :pretty-print
@@ -1908,8 +1908,17 @@
     "JSON" :json
     "IMPORTED_SCRIPT" :imported-script))
 
+(defmacro get-symbol [i]
+  ;; v20180204 returns string
+  ;; next Closure returns DependencyInfo.Require object
+  (let [c "com.google.javascript.jscomp.deps.DependencyInfo$Require"]
+    (if (Class/forName c)
+      `(.getSymbol ~(with-meta i {:tag (symbol c)}))
+      (with-meta i {:tag 'java.lang.String}))))
+
 (defn add-converted-source
-  [closure-compiler inputs-by-name opts {:keys [file-min file provides requires] :as ijs}]
+  [^com.google.javascript.jscomp.Compiler
+   closure-compiler inputs-by-name opts {:keys [file-min file provides requires] :as ijs}]
   (let [processed-file (if-let [min (and (#{:advanced :simple} (:optimizations opts))
                                          file-min)]
                          min
@@ -1932,12 +1941,8 @@
                           (str "goog.provide(\"" n "\");\n"))
                         provides))
         (->> (.getRequires input)
-             ;; v20180204 returns string
-             ;; next Closure returns DependencyInfo.Require object
              (map (fn [i]
-                    (if (string? i)
-                      i
-                      (.getSymbol i))))
+                    (get-symbol i)))
              ;; If CJS/ES6 module uses goog.require, goog is added to requires
              ;; but this would cause problems with Cljs.
              (remove #{"goog"})
@@ -1981,8 +1986,9 @@
       (eval '(do
                (import '(com.google.javascript.jscomp DependencyOptions))
                (DependencyOptions/sortOnly)))
-      (doto (DependencyOptions.)
-        (.setDependencySorting true)))))
+      ;; eval is not strictly necessary here, however it prevents a reflection warning when the surrounding `if` branch evaluates to true:
+      (eval '(doto (com.google.javascript.jscomp.DependencyOptions.)
+               (.setDependencySorting true))))))
 
 (defn convert-js-modules
   "Takes a list JavaScript modules as an IJavaScript and rewrites them into a Google
@@ -2001,7 +2007,7 @@
                            (.init externs source-files options))
         _ (.parse closure-compiler)
         _ (report-failure (.getResult closure-compiler))
-        inputs-by-name (into {} (map (juxt #(.getName %) identity) (vals (.getInputsById closure-compiler))))]
+        inputs-by-name (into {} (map (juxt #(.getName ^CompilerInput %) identity) (vals (.getInputsById closure-compiler))))]
 
     ;; This will take care of converting ES6 to CJS
     ;; Based on language-in setting, this could also handle ES7/8/TypeScript transpilation.
@@ -2023,17 +2029,19 @@
   (ana/warning :unsupported-preprocess-value @env/*compiler* ijs)
   ijs)
 
-(defn url->nio-path [url]
+(defn url->nio-path [^URL url]
   (let [raw-uri (.toURI url)
         arr     (-> raw-uri .toString (.split "!"))
         uri     (-> arr (aget 0) URI/create)
+        ^FileSystem
         fs      (try
                   (FileSystems/getFileSystem uri)
                   (catch Throwable t
                     (FileSystems/newFileSystem uri (HashMap.))))]
-    (.getPath fs ^String (.toString raw-uri) (make-array String 0))))
+    (.getPath fs ^String (.toString raw-uri)
+              ^"[Ljava.lang.String;" (make-array String 0))))
 
-(defn add-goog-load [source]
+(defn add-goog-load [^String source]
   (let [sb (StringBuilder.)
         module (-> (SimpleDependencyInfo/builder "" "")
                  (.setGoogModule true) .build)
@@ -2043,6 +2051,7 @@
 
 (defn ^DiagnosticGroup es5-warnings []
   (DiagnosticGroup.
+    ^"[Lcom.google.javascript.jscomp.DiagnosticType;"
     (into-array DiagnosticType
       [(DiagnosticType/error "JSC_CANNOT_CONVERT" "")])))
 
@@ -2077,8 +2086,8 @@
   [{:keys [language-out] :or {language-out :es3} :as opts} rsc {:keys [module lang] :as js}]
   (let [source  (slurp rsc)
         source' (if (and lang
-                         (< (.indexOf lang-level (expand-lang-key language-out))
-                            (.indexOf lang-level (expand-lang-key lang))))
+                         (< (.indexOf ^clojure.lang.APersistentVector lang-level (expand-lang-key language-out))
+                            (.indexOf ^clojure.lang.APersistentVector lang-level (expand-lang-key lang))))
                   (closure-transpile (util/path rsc) source opts)
                   source)]
     (str "/*TRANSPILED*/"
@@ -2239,7 +2248,7 @@
   by libraries on the classpath."
   ([]
    (get-upstream-deps* (. (Thread/currentThread) (getContextClassLoader))))
-  ([classloader]
+  ([^ClassLoader classloader]
    (let [upstream-deps (map #(read-string (slurp %))
                          (enumeration-seq (. classloader (getResources "deps.cljs"))))]
      (apply merge-with
@@ -2581,7 +2590,7 @@
       (nil? (:ignore-js-module-exts opts))
       (assoc :ignore-js-module-exts [".css"]))))
 
-(defn- alive? [proc]
+(defn- alive? [^Process proc]
   (try (.exitValue proc) false (catch IllegalThreadStateException _ true)))
 
 (defn- pipe [^Process proc in ^Writer out]
@@ -2596,7 +2605,7 @@
               (.flush out)))
           (catch IOException e
             (when (and (alive? proc) (not (.contains (.getMessage e) "Stream closed")))
-              (.printStackTrace e *err*))))
+              (.printStackTrace e ^PrintWriter *err*))))
         (recur buf)))))
 
 (defn maybe-install-node-deps!
@@ -2612,6 +2621,7 @@
         (when-not (.exists pkg-json)
           (spit pkg-json "{}"))
         (let [proc (-> (ProcessBuilder.
+                         ^java.util.List
                          (into (cond->>
                                  [deps-cmd
                                   ({"npm" "install" "yarn" "add"} deps-cmd)
@@ -2624,12 +2634,14 @@
               iw   (StringWriter. (* 16 1024 1024))
               es   (.getErrorStream proc)
               ew   (StringWriter. (* 1024 1024))
+              ^Runnable
+              f1   (bound-fn [] (pipe proc is iw))
+              ^Runnable
+              f2   (bound-fn [] (pipe proc es ew))
               _    (do (.start
-                         (Thread.
-                           (bound-fn [] (pipe proc is iw))))
+                        (Thread. f1))
                        (.start
-                         (Thread.
-                           (bound-fn [] (pipe proc es ew)))))
+                        (Thread. f2)))
               err  (.waitFor proc)]
           (when (and (not (zero? err)) (not (.isAlive proc)))
             (println (str ew)))))
@@ -2658,18 +2670,19 @@
                 (string/replace "CLJS_TARGET" (str "" (when target (name target))))
                 (string/replace "MAIN_ENTRIES" main-entries)
                 (string/replace "FILE_SEPARATOR" (escape-backslashes File/separator)))
-         proc (-> (ProcessBuilder. ["node" "--eval" code])
+         ^java.util.List code-arg ["node" "--eval" code]
+         proc (-> (ProcessBuilder. code-arg)
                 .start)
          is   (.getInputStream proc)
          iw   (StringWriter. (* 16 1024 1024))
          es   (.getErrorStream proc)
          ew   (StringWriter. (* 1024 1024))
+         ^Runnable f1 (bound-fn [] (pipe proc is iw))
+         ^Runnable f2 (bound-fn [] (pipe proc es ew))
          _    (do (.start
-                    (Thread.
-                      (bound-fn [] (pipe proc is iw))))
+                   (Thread. f1))
                   (.start
-                    (Thread.
-                      (bound-fn [] (pipe proc es ew)))))
+                   (Thread. f2)))
          err  (.waitFor proc)]
      (if (zero? err)
        (into []
@@ -2710,7 +2723,7 @@
    (let [node-modules (io/file "node_modules")]
      (if (and (not (empty? modules)) (.exists node-modules) (.isDirectory node-modules))
        (let [modules (into #{} (map name) modules)
-             deps-file (io/file (util/output-directory opts) "cljs$node_modules.js")
+             ^File deps-file (io/file (util/output-directory opts) "cljs$node_modules.js")
              old-contents (when (.exists deps-file)
                             (slurp deps-file))
              new-contents (let [sb (StringBuffer.)]
@@ -2737,7 +2750,7 @@
             (boolean (re-find #"node_modules[/\\](@[^/\\]+?[/\\])?[^/\\]+?[/\\]package\.json$" path)))]
     (let [pkg-jsons (into {}
                       (comp
-                        (map #(.getAbsolutePath %))
+                        (map #(.getAbsolutePath ^File %))
                         (filter package-json?)
                         (map (fn [path]
                                [path (json/read-str (slurp path))])))
@@ -2748,8 +2761,8 @@
                                 s))]
       (into []
         (comp
-          (map #(.getAbsolutePath %))
-          (map (fn [path]
+          (map #(.getAbsolutePath ^File %))
+          (map (fn [^String path]
                  (merge
                    {:file path
                     :module-type :es6}
@@ -2923,7 +2936,7 @@
    on the classpath."
   ([]
    (get-data-readers* (. (Thread/currentThread) (getContextClassLoader))))
-  ([classloader]
+  ([^ClassLoader classloader]
    (let [data-reader-urls (enumeration-seq (. classloader (getResources "data_readers.cljc")))]
      (reduce load-data-reader-file {} data-reader-urls))))
 
@@ -3286,7 +3299,8 @@
     (let [opts  (cond-> opts
                   (= (:verbose opts :not-found) :not-found)
                   (assoc :verbose true))
-          paths (map #(Paths/get (.toURI %)) (-paths source))
+          paths (map #(Paths/get (.toURI ^File %)) (-paths source))
+          ^Path
           path  (first paths)
           fs    (.getFileSystem path)
           srvc  (.newWatchService fs)]
@@ -3354,7 +3368,7 @@
                                                       ctx)))
                                             poll-events-seq))]
                   (let [^Path dir (.watchable key)
-                        file-seq (map #(.toFile (.resolve dir %)) clj-files)
+                        file-seq (map #(.toFile (.resolve dir ^Path %)) clj-files)
                         nses (map (comp :ns ana/parse-ns) file-seq)]
                     (doseq [ns nses]
                       (require ns :reload))
@@ -3469,7 +3483,7 @@
        :optimizations :simple
        :output-dir "aot_out"}
       (io/file "resources" "brepl_client.js"))
-    (doseq [f (file-seq (io/file "aot_out"))
+    (doseq [^File f (file-seq (io/file "aot_out"))
             :when (.isFile f)]
       (.delete f))))
 

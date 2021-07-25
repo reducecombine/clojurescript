@@ -165,6 +165,40 @@ jobs:
 
       - name: Run tests
         run: clojure -M:compiler.test:compiler.test.run
+  # Lint (especially for reflection warnings)
+  lint:
+    name: Lint
+    runs-on: macos-10.15
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: DeLaGuardo/setup-clojure@3.1
+        with:
+          tools-deps: '1.10.1.763'
+
+      - name: Cache maven
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-maven
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: Cache gitlibs
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-gitlibs
+        with:
+          path: ~/.gitlibs
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      # The aliases intend to add all available :paths so that one lints as many namespaces as possible:
+      - name: Lint (especially for reflection warnings)
+        run: clojure -M:cli.test.run:compiler.test:runtime.test.build:selfhost.test.build:selfparity.test.build:eastwood
 
   # CLI Tests
   cli-test:

@@ -64,120 +64,120 @@
 (def ns-env (assoc-in (ana/empty-env) [:ns :name] 'cljs.user))
 
 (deftest spec-validation
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:require {:foo :bar})))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only [lib.ns & options] and lib.ns specs supported in :require / :require-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:require [:foo :bar])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Library name must be specified as a symbol in :require / :require-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:require [baz.woz :as woz :refer [] :plop])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only :as alias, :refer (names) and :rename {from to} options supported in :require"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:require [baz.woz :as woz :refer [] :plop true])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only :as, :refer and :rename options supported in :require / :require-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:require [baz.woz :as woz :refer [] :as boz :refer []])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Each of :as and :refer options may only be specified once in :require / :require-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:refer-clojure :refer [])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only [:refer-clojure :exclude (names)] and optionally `:rename {from to}` specs supported"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:refer-clojure :rename [1 2])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only [:refer-clojure :exclude (names)] and optionally `:rename {from to}` specs supported"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:use [baz.woz :exclude []])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:use [baz.woz])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:use [baz.woz :only])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:use [baz.woz :only [1 2 3]])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:use [baz.woz :rename [1 2]])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:use [foo.bar :rename {baz qux}])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:use [baz.woz :only [foo] :only [bar]])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Each of :only and :rename options may only be specified once in :use / :use-macros"))
-  (is (.startsWith
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:require {:foo :bar})))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only [lib.ns & options] and lib.ns specs supported in :require / :require-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:require [:foo :bar])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Library name must be specified as a symbol in :require / :require-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:require [baz.woz :as woz :refer [] :plop])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only :as alias, :refer (names) and :rename {from to} options supported in :require")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:require [baz.woz :as woz :refer [] :plop true])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only :as, :refer and :rename options supported in :require / :require-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:require [baz.woz :as woz :refer [] :as boz :refer []])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Each of :as and :refer options may only be specified once in :require / :require-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:refer-clojure :refer [])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only [:refer-clojure :exclude (names)] and optionally `:rename {from to}` specs supported")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:refer-clojure :rename [1 2])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only [:refer-clojure :exclude (names)] and optionally `:rename {from to}` specs supported")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:use [baz.woz :exclude []])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:use [baz.woz])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:use [baz.woz :only])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:use [baz.woz :only [1 2 3]])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:use [baz.woz :rename [1 2]])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:use [foo.bar :rename {baz qux}])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only [lib.ns :only (names)] and optionally `:rename {from to}` specs supported in :use / :use-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:use [baz.woz :only [foo] :only [bar]])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Each of :only and :rename options may only be specified once in :use / :use-macros")))
+
+  (let [^String s
         (try
           (analyze ns-env '(ns foo.bar (:require [baz.woz :as []])))
           (catch Exception e
-            (.getMessage (.getCause e))))
-        ":as must be followed by a symbol in :require / :require-macros"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:require [baz.woz :as woz] [noz.goz :as woz])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        ":as alias must be unique"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:require [foo.bar :rename {baz qux}])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Renamed symbol baz not referred"))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:unless [])))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only :refer-clojure, :require, :require-macros, :use, :use-macros, and :import libspecs supported. Got (:unless []) instead."))
-  (is (.startsWith
-        (try
-          (analyze ns-env '(ns foo.bar (:require baz.woz) (:require noz.goz)))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Only one ")))
+            (.getMessage (.getCause e))))]
+    (is (.startsWith s ":as must be followed by a symbol in :require / :require-macros")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:require [baz.woz :as woz] [noz.goz :as woz])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s ":as alias must be unique")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:require [foo.bar :rename {baz qux}])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Renamed symbol baz not referred")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:unless [])))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only :refer-clojure, :require, :require-macros, :use, :use-macros, and :import libspecs supported. Got (:unless []) instead.")))
+
+  (let [^String s (try
+                    (analyze ns-env '(ns foo.bar (:require baz.woz) (:require noz.goz)))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Only one "))))
 
 (def test-cenv (env/default-compiler-env))
 (def test-env (assoc-in (ana/empty-env) [:ns :name] 'cljs.core))
@@ -207,12 +207,11 @@
 ;; Catching errors during macroexpansion
 
 (deftest test-defn-error
-  (is (.startsWith
-        (try
-          (analyze test-env '(defn foo 123))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Parameter declaration \"123\" should be a vector")))
+  (let [^String s (try
+                    (analyze test-env '(defn foo 123))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Parameter declaration \"123\" should be a vector"))))
 
 ;; =============================================================================
 ;; ns desugaring
@@ -294,18 +293,17 @@
 ;; Constants
 
 (deftest test-constants
- (is (.startsWith
-        (try
-          (analyze test-env '(do (def ^:const foo 123)  (def foo 246)))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Can't redefine a constant"))
-  (is (.startsWith
-        (try
-          (analyze test-env '(do (def ^:const foo 123)  (set! foo 246)))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Can't set! a constant")))
+  (let [^String s (try
+                    (analyze test-env '(do (def ^:const foo 123)  (def foo 246)))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Can't redefine a constant")))
+
+  (let [^String s (try
+                    (analyze test-env '(do (def ^:const foo 123)  (set! foo 246)))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Can't set! a constant"))))
 
 (deftest test-cljs-1508-rename
   (binding [ana/*cljs-ns* ana/*cljs-ns*]
@@ -386,7 +384,7 @@
         '(fn [foo]
            (let [x js/foo]
              (println x)))))
-    (is (.startsWith (first @ws) "js/foo is shadowed by a local"))))
+    (is (.startsWith ^String (first @ws) "js/foo is shadowed by a local"))))
 
 (deftest test-cljs-2005
   (let [ws (atom [])]
@@ -397,7 +395,7 @@
              ([x] x)
              ([x] x))))
       (catch Exception _))
-    (is (.startsWith (first @ws) "myfun: Can't have 2 overloads with same arity"))))
+    (is (.startsWith ^String (first @ws) "myfun: Can't have 2 overloads with same arity"))))
 
 (deftest test-cljs-2863
   (let [ws (atom [])]
@@ -408,7 +406,7 @@
                    ([x] x)
                    ([& xs] xs))))
       (catch Exception _))
-    (is (.startsWith (first @ws) "myfun: Can't have fixed arity function with more params than variadic function")))
+    (is (.startsWith ^String (first @ws) "myfun: Can't have fixed arity function with more params than variadic function")))
 
   (let [ws (atom [])]
     (try
@@ -418,7 +416,7 @@
                    ([& x] x)
                    ([& xs] xs))))
       (catch Exception _))
-    (is (.startsWith (first @ws) "myfun: Can't have more than 1 variadic overload"))))
+    (is (.startsWith ^String (first @ws) "myfun: Can't have more than 1 variadic overload"))))
 
 (deftest test-canonicalize-specs
   (is (= (ana/canonicalize-specs '((quote [clojure.set :as set])))
@@ -1124,44 +1122,42 @@
           :foo))))
 
 (deftest quote-args-error-test
-  (is (.startsWith
-        (try
-          (ana (quote))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Wrong number of args to quote"))
-  (is (.startsWith
-        (try
-          (ana (quote a b))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Wrong number of args to quote"))
-  (is (.startsWith
-        (try
-          (ana (quote a b c d))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Wrong number of args to quote")))
+  (let [^String s (try
+                    (ana (quote))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Wrong number of args to quote")))
+
+  (let [^String s (try
+                    (ana (quote a b))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Wrong number of args to quote")))
+
+  (let [^String s (try
+                    (ana (quote a b c d))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Wrong number of args to quote"))))
 
 (deftest var-args-error-test
-  (is (.startsWith
-        (try
-          (ana (var))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Wrong number of args to var"))
-  (is (.startsWith
-        (try
-          (ana (var a b))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Wrong number of args to var"))
-  (is (.startsWith
-        (try
-          (ana (var nil))
-          (catch Exception e
-            (.getMessage (.getCause e))))
-        "Argument to var must be symbol")))
+  (let [^String s (try
+                    (ana (var))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Wrong number of args to var")))
+
+  (let [^String s (try
+                    (ana (var a b))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Wrong number of args to var")))
+
+  (let [^String s (try
+                    (ana (var nil))
+                    (catch Exception e
+                      (.getMessage (.getCause e))))]
+    (is (.startsWith s "Argument to var must be symbol"))))
 
 (deftest test-cljs-1871
   (let [ws (atom [])]

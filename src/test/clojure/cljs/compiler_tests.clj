@@ -159,8 +159,11 @@
                                  (analyze aenv
                                    '(let [{:keys [a] :or {b 2}} {:a 1}] [a b]))))))]
           (is (= (ffirst warnings) :undeclared-var))
-          (is (.startsWith (-> warnings first second)
-                "WARNING: Use of undeclared Var cljs.user/b")))))))
+          (is (-> warnings
+                  first
+                  ^String (second)
+                  (.startsWith
+                   "WARNING: Use of undeclared Var cljs.user/b"))))))))
 
 (deftest no-warn-on-emit-invoke-protocol-method
   (let [define-foo #(assoc-in % [::ana/namespaces 'cljs.user :defs 'foo]

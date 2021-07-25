@@ -289,6 +289,7 @@
   "Take an internal source map representation represented as nested
    sorted maps of file, line, column and return a source map v3 JSON
    string."
+  ^String
   [m opts]
   (let [source-map-file-contents (encode* m opts)]
     (if (true? (:source-map-pretty-print opts))

@@ -23,12 +23,12 @@
   (ex-info nil {:clojure.error/phase :compilation} cause))
 
 (defn- main-src-directory []
-  (some (fn [file]
+  (some (fn [^File file]
           (when (= "main" (.getName file))
             file))
-    (iterate (memfn getParentFile) (io/as-file (io/resource "cljs/util.cljc")))))
+    (iterate (memfn ^File getParentFile) (io/as-file (io/resource "cljs/util.cljc")))))
 
-(defn- file-hash [file]
+(defn- file-hash [^File file]
   (if (.isDirectory file)
     0
     (hash (slurp file))))
@@ -39,7 +39,7 @@
   (delay (let [qualifier (fn [n]
                            (if (== n Integer/MIN_VALUE)
                              0
-                             (Math/abs n)))]
+                             (Math/abs (int n))))]
            (str synthethetic-version-prefix 
                 (qualifier (reduce unchecked-add-int (map file-hash (file-seq (main-src-directory)))))))))
 
@@ -173,7 +173,7 @@
   (cond
     (file? x) (.getAbsolutePath ^File x)
     (url? x) (if windows?
-               (let [f (URLDecoder/decode (.getFile x))]
+               (let [f (URLDecoder/decode (.getFile ^URL x))]
                  (normalize-path f))
                (.getPath ^URL x))
     (string? x) x
@@ -210,8 +210,8 @@
                 (str (.subpath file-path base-count (.getNameCount file-path)))
                 s)))]
     (if (file? x)
-      (strip-user-dir (.getAbsolutePath x))
-      (let [f (URLDecoder/decode (.getFile x))]
+      (strip-user-dir (.getAbsolutePath ^File x))
+      (let [f (URLDecoder/decode (.getFile ^URL x))]
         (if (string/includes? f ".jar!/")
           (last (string/split f #"\.jar!/"))
           (strip-user-dir f))))))

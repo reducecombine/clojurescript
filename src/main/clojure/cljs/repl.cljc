@@ -73,13 +73,13 @@
   supporting .unread and collapsing all of CR, LF, and CRLF to a single
   \\newline."
   [s]
-  (loop [c (readers/read-char s)]
+  (loop [c (char (readers/read-char s))]
     (case c
       \newline :line-start
       nil :stream-end
       \; (do (readers/read-line s) :line-start)
       (if (or (Character/isWhitespace c) (identical? c \,))
-        (recur (readers/read-char s))
+        (recur (char (readers/read-char s)))
         (do (readers/unread s c) :body)))))
 
 (defn repl-read
@@ -324,7 +324,7 @@
 (defn- mapped-frame
   "Given opts and a canonicalized JavaScript stacktrace frame, return the
   ClojureScript frame."
-  [{:keys [function file line column]} opts]
+  [{:keys [function ^String file line column]} opts]
   (let [no-source-file? (if-not file
                           true
                           (.startsWith file "<"))
@@ -338,13 +338,14 @@
                                [line column])
         name' (when (and ns-info function)
                 function)
+        ^File
+        file-arg (if ns-info
+                   source-file
+                   (io/file rfile))
         file' (if no-source-file?
                 file
                 (string/replace
-                  (.getCanonicalFile
-                    (if ns-info
-                      source-file
-                      (io/file rfile)))
+                  (.getCanonicalFile file-arg)
                   (str (System/getProperty "user.dir") File/separator) ""))
         url (or (and ns-info (util/ns->source ns))
                 (and file (io/resource file)))]
@@ -395,8 +396,8 @@
   [file {:keys [output-dir temp-output-dir?]}]
   (if temp-output-dir?
     (let [canonicalize (fn [file] (.getCanonicalPath (io/file file)))
-          can-file (canonicalize file)
-          can-out (canonicalize output-dir)]
+          ^String can-file (canonicalize file)
+          ^String can-out (canonicalize output-dir)]
       (if (.startsWith can-file can-out)
         (subs can-file (inc (count can-out)))
         (subs can-file (inc (.lastIndexOf can-file java.io.File/separator)))))
@@ -621,7 +622,7 @@
           (cljsc/src-file->goog-require src
             {:wrap true :reload true :macros-ns (:macros-ns compiled)})))
       (binding [ana/*cljs-ns* ana/*cljs-ns*]
-        (let [res (if (= File/separatorChar (first f)) f (io/resource f))]
+        (let [res (if (= File/separatorChar (char (first f))) f (io/resource f))]
           (assert res (str "Can't find " f " in classpath"))
           (load-stream repl-env f res))))))
 
@@ -642,7 +643,8 @@
 
 (defn- load-path->cp-path
   [path]
-  (let [src (if (= File/separatorChar (first path))
+  (let [^String
+        src (if (= File/separatorChar (char (first path)))
               path
               (str (root-directory ana/*cljs-ns*) \/ path))
         src (.substring src 1)]
@@ -796,10 +798,11 @@
   "Given a source directory, analyzes all .cljs files. Used to populate
   (:cljs.analyzer/namespaces compiler-env) so as to support code reflection."
   ([src-dir] (analyze-source src-dir nil))
-  ([src-dir opts]
-    (if-let [src-dir (and (not (empty? src-dir))
+  ([^String src-dir opts]
+    (if-let [^File
+             src-dir (and (not (empty? src-dir))
                        (File. src-dir))]
-      (doseq [file (comp/cljs-files-in src-dir)]
+      (doseq [^File file (comp/cljs-files-in src-dir)]
         (ana/analyze-file (str "file://" (.getAbsolutePath file)) opts)))))
 
 (defn repl-title []
@@ -1083,7 +1086,8 @@
         done? (atom false)]
     (env/with-compiler-env (or compiler-env env/*compiler* (env/default-compiler-env opts))
      (when (:source-map opts)
-       (.start (Thread. (bound-fn [] (read-source-map "cljs/core.aot.js")))))
+       (let [^Runnable f (bound-fn [] (read-source-map "cljs/core.aot.js"))]
+         (.start (Thread. f))))
      (binding [*repl-env* repl-env
                ana/*unchecked-if* false
                ana/*unchecked-arrays* false
@@ -1174,9 +1178,9 @@
                        (run! #(analyze-source % opts) analyze-path)
                        (analyze-source analyze-path opts)))
                    (when-let [main-ns (:main opts)]
-                     (.start
-                       (Thread.
-                         (bound-fn [] (ana/analyze-file (util/ns->source main-ns))))))
+                     (let [^Runnable f (bound-fn [] (ana/analyze-file (util/ns->source main-ns)))]
+                       (.start
+                        (Thread. f))))
                    (init)
                    (run-inits repl-env inits)
                    (maybe-load-user-file)
@@ -1184,7 +1188,7 @@
                      (caught e repl-env opts)))
                  (when-let [src (:watch opts)]
                    (.start
-                     (Thread.
+                     (Thread. ^Runnable
                        ((ns-resolve 'clojure.core 'binding-conveyor-fn)
                          (fn []
                            (let [log-file (io/file (util/output-directory opts) "watch.log")]

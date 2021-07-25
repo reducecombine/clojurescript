@@ -1553,7 +1553,8 @@
                  emitter (when (:parallel-build opts)
                            (Executors/newSingleThreadExecutor))
                  emit (if emitter
-                        #(.execute emitter ^Runnable (bound-fn [] (emit %)))
+                        #(let [^Runnable f (bound-fn [] (emit %))]
+                           (.execute emitter f))
                         emit)]
              (loop [forms       (ana/forms-seq* rdr (util/path src))
                     ns-name     nil

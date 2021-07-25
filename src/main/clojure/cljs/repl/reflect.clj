@@ -79,6 +79,6 @@
     (server/send-and-close conn 200 (with-out-str (pprint/pprint mform)))))
 
 (server/dispatch-on :get
-                    (fn [{:keys [path]} _ _] (.startsWith path "/reflect"))
+                    (fn [{:keys [^String path]} _ _] (.startsWith path "/reflect"))
                     (fn [{:keys [path] :as req} conn opts]
                       (handle-reflect-query (parse-param path) req conn opts)))

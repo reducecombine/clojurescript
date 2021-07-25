@@ -1787,7 +1787,9 @@
 
 (core/defn- emit-defrecord
   "Do not use this directly - use defrecord"
-  [env tagname rname fields impls]
+  [env tagname #?(:clj ^clojure.lang.Symbol rname
+                  :cljs rname)
+   fields impls]
   (core/let [hinted-fields fields
              fields (vec (map #(with-meta % nil) fields))
              base-fields fields

@@ -47,7 +47,7 @@
     (io/delete-file f)))
 
 (defn- copy-uberjar [^File dest]
-  (Files/copy (.toPath (io/file "target/cljs.jar")) (.toPath (io/file dest "cljs.jar")) (make-array CopyOption 0)))
+  (Files/copy (.toPath (io/file "target/cljs.jar")) (.toPath (io/file dest "cljs.jar")) ^"[Ljava.nio.file.CopyOption;" (make-array CopyOption 0)))
 
 (defn- write-sources [temp-dir]
   (let [qualified #(io/file temp-dir %)]

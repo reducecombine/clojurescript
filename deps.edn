@@ -27,4 +27,9 @@
                                       "-m" "cljs.main" "-co" "resources/self_parity_test.edn" "-c"]}
   :uberjar               {:extra-deps {com.github.seancorfield/depstar {:mvn/version "2.0.193"}}
                           :exec-fn hf.depstar/uberjar
-                          :exec-args {:aot true}}}}
+                          :exec-args {:aot true}}
+  :eastwood {:main-opts ["-m" "eastwood.lint" {;; Lint only one thing (:reflection) or related linters that directly support that goal:
+                                               :linters [:reflection :wrong-tag :unused-meta-on-macro]
+                                               ;; Avoid a not particularly important linting failure:
+                                               :exclude-namespaces [data-readers-test.records]}]
+             :extra-deps {jonase/eastwood {:mvn/version "0.9.4"}}}}}

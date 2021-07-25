@@ -36,7 +36,7 @@
 (defn absolute-module-path
   ([relpath]
    (absolute-module-path relpath false))
-  ([relpath code?]
+  ([^String relpath code?]
    (let [filename (as-> (subs relpath (inc (.lastIndexOf relpath "/"))) $
                     (string/replace $ "_" "-")
                     (subs $ 0 (.lastIndexOf $ ".")))
